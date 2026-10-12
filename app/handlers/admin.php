@@ -84,7 +84,7 @@ function admin_new(): void
 {
     require_admin_page();
     admin_render('admin/editor', [
-        'title' => 'New poll',
+        'title' => 'New activity',
         'bodyClass' => 'page-editor',
         'editor' => null,
         'scripts' => ['js/poll.js', 'js/admin.js', 'js/editor.js'],
@@ -96,7 +96,7 @@ function admin_edit(string $id): void
     require_admin_page();
     $activity = admin_find((int) $id);
     admin_render('admin/editor', [
-        'title' => 'Edit poll',
+        'title' => 'Edit activity',
         'bodyClass' => 'page-editor',
         'editor' => activity_editor_data($activity),
         'scripts' => ['js/poll.js', 'js/admin.js', 'js/editor.js'],
@@ -123,10 +123,14 @@ function admin_export_csv(string $id): void
 {
     require_admin_page();
     $activity = admin_find((int) $id);
-    $options = activity_options((int) $activity['id']);
+    $questions = activity_questions((int) $activity['id']);
     $labels = [];
-    foreach ($options as $i => $o) {
-        $labels[(int) $o['id']] = $o['label'] !== '' ? $o['label'] : 'Option ' . ($i + 1);
+    $titles = [];
+    foreach ($questions as $qi => $q) {
+        $titles[$q['id']] = question_display_title($q, $qi, $activity, count($questions));
+        foreach ($q['options'] as $i => $o) {
+            $labels[$o['id']] = $o['label'] !== '' ? $o['label'] : 'Option ' . ($i + 1);
+        }
     }
     $safe = static function (string $v): string {
         // Stop spreadsheet apps from treating text as a formula.
@@ -135,24 +139,38 @@ function admin_export_csv(string $id): void
 
     no_cache();
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="poll-' . $activity['code'] . '-results.csv"');
+    header('Content-Disposition: attachment; filename="activity-' . $activity['code'] . '-results.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel shows Arabic and accents correctly
     csv_row($out, [$safe($activity['title'])]);
     csv_row($out, []);
-    csv_row($out, ['Name', 'Answer', 'Submitted (UTC)']);
-    foreach (activity_response_rows((int) $activity['id'], $options) as $row) {
-        $answers = array_map(static fn($oid) => $labels[$oid] ?? '', $row['option_ids']);
-        csv_row($out, [$safe($row['name']), $safe(implode('; ', $answers)), rtrim($row['at'], 'Z')]);
+    // One row per person, one column per question.
+    csv_row($out, array_merge(['Name'], array_map($safe, array_values($titles)), ['Last answer (UTC)']));
+    foreach (activity_response_rows((int) $activity['id'], $questions) as $row) {
+        $answers = (array) $row['answers'];
+        $cells = [$safe($row['name'])];
+        foreach ($questions as $q) {
+            $picked = array_map(static fn($oid) => $labels[$oid] ?? '', $answers[$q['id']] ?? []);
+            $cells[] = $safe(implode('; ', $picked));
+        }
+        $cells[] = str_replace('T', ' ', rtrim($row['at'], 'Z'));
+        csv_row($out, $cells);
     }
-    $results = activity_results($activity, $options);
+
+    // Totals per question.
+    $results = activity_results($activity, $questions);
+    foreach ($questions as $qi => $q) {
+        $r = $results['questions'][$qi];
+        csv_row($out, []);
+        csv_row($out, [$safe($titles[$q['id']]), 'Votes', '% of voters']);
+        foreach ($r['counts'] as $c) {
+            $pct = $r['voters'] > 0 ? round($c['count'] / $r['voters'] * 100) . '%' : '0%';
+            csv_row($out, [$safe($labels[$c['id']] ?? ''), $c['count'], $pct]);
+        }
+        csv_row($out, ['Voters', $r['voters']]);
+    }
     csv_row($out, []);
-    csv_row($out, ['Option', 'Votes', '% of voters']);
-    foreach ($results['counts'] as $c) {
-        $pct = $results['voters'] > 0 ? round($c['count'] / $results['voters'] * 100) . '%' : '0%';
-        csv_row($out, [$safe($labels[$c['id']] ?? ''), $c['count'], $pct]);
-    }
-    csv_row($out, ['Total voters', $results['voters']]);
+    csv_row($out, ['People who took part', $results['voters']]);
     fclose($out);
     exit;
 }

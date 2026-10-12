@@ -4,22 +4,22 @@
  */
 declare(strict_types=1);
 
-/** What a participant's phone needs: the activity, their own vote and (if allowed) results. */
+/** What a participant's phone needs: the activity, their own answers and (if allowed) results. */
 function participant_payload(?array $activity, ?array $me): array
 {
     $payload = ['me' => participant_public($me), 'activity' => null];
     if (!$activity) {
         return $payload;
     }
-    $options = activity_options((int) $activity['id']);
+    $questions = activity_questions((int) $activity['id']);
     $settings = activity_settings($activity);
-    $my = $me ? activity_my_choice((int) $activity['id'], (int) $me['id']) : [];
+    $my = $me ? activity_my_choices((int) $activity['id'], (int) $me['id']) : [];
 
     $payload['version'] = (int) $activity['version'];
-    $payload['activity'] = activity_public($activity, $options);
-    $payload['my'] = $my;
+    $payload['activity'] = activity_public($activity, $questions);
+    $payload['my'] = (object) $my; // {question_id: [option ids]}
     $payload['results'] = ($my && $settings['show_results'] && !$activity['results_hidden'])
-        ? activity_results($activity, $options)
+        ? activity_results($activity, $questions)
         : null;
     return $payload;
 }
@@ -69,7 +69,9 @@ function api_vote(string $code): void
     if (!$me) {
         json_error('Tell us your name first.', 401, 'no_participant');
     }
-    activity_vote($activity, $me, input_json()['option_ids'] ?? []);
+    $in = input_json();
+    $questionId = isset($in['question_id']) ? (int) $in['question_id'] : null;
+    activity_vote($activity, $me, $questionId, $in['option_ids'] ?? []);
     json_out(participant_payload(activity_by_id((int) $activity['id']), $me));
 }
 

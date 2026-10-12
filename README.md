@@ -1,11 +1,12 @@
-# Gamify: live polls for your training sessions
+# Gamify: live voting activities for your training sessions
 
 Participants scan a QR code, type their name once, and vote from their phones.
 You watch the results update live on the big screen, including inside PowerPoint.
 
 - **Join in seconds.** Each activity has its own QR code and 6-digit code. There's nothing to install.
 - **Names are remembered.** Participants type their name once. It's saved on their phone and reused for every future activity on your site.
-- **Polls with images.** Single or multiple choice (with an optional limit), and a picture on any option.
+- **Activities with several questions.** One QR code per activity, holding one or more questions, like a toolbox voting wall with three sections. Each question has its own title, description and color.
+- **Pictures on options.** Every question can be single or multiple choice (with an optional limit), with a picture on any option.
 - **Instant results.** New votes reach the presenter screen in well under a second.
 - **Present anywhere.** The presenter view embeds in PowerPoint (Web Viewer add-in) and scales to any size, in light or dark.
 - **You stay in control.** Open or close voting, hide results until the reveal, clear votes, see who voted for what, and export to CSV (Excel-friendly, Arabic included).
@@ -64,10 +65,17 @@ It creates the tables, saves `config.php` and signs you in. That's it.
 > Prefer to do it by hand? Copy `config.example.php` to `config.php`, fill in the values, and open the site.
 > If the server doesn't let the wizard save `config.php`, it shows you the exact text to paste into a new file instead.
 
-### 5. Create your first poll
+### 5. Create your first activity
 
-Go to `yourdomain.com/admin` → **New poll** → add a question and options (tap the square to add a picture) → **Create poll**.
-The poll page gives you the QR code (download it as PNG or SVG for your slides), the join link and the presenter link.
+Go to `yourdomain.com/admin` → **New activity**:
+
+1. Give the activity a title and, if you like, instructions for participants.
+2. Fill in the first question: a title, a short description, a color and its options. Tap the square next to an option to add a picture.
+3. Click **Add question** for each extra section (e.g. *KYKO*, *Engaging Customer Dialogue*, *Positive Persistence & Learning*).
+4. Click **Create activity**.
+
+The activity page gives you the QR code (download it as PNG or SVG for your slides), the join link and the presenter link.
+Participants scan once, answer each question in turn ("1 of 3", "2 of 3" …) and see a summary of their choices at the end.
 
 ---
 
@@ -75,7 +83,7 @@ The poll page gives you the QR code (download it as PNG or SVG for your slides),
 
 1. In PowerPoint, go to the **Home** tab and click **Add-ins** at the far right of the ribbon. On older versions it's under **Insert → Get Add-ins**; **File → Get Add-ins** also works.
 2. Search for **Web Viewer** and add it.
-3. Go to the slide, open **Home → Add-ins** again and click **Web Viewer** to place it. Paste the poll's **presenter link**: copy it from the poll page in admin, after picking Light or Dark to match your deck. If the add-in already shows `https://` in front of the box, paste the link without its own `https://`.
+3. Go to the slide, open **Home → Add-ins** again and click **Web Viewer** to place it. Paste the activity's **presenter link**: copy it from the activity page in admin, after picking Light or Dark to match your deck. If the add-in already shows `https://` in front of the box, paste the link without its own `https://`.
 4. Start the slideshow. Votes appear live with no refresh.
 
 **No Add-ins button, or it's greyed out?** Your company has probably switched off Office add-ins. Ask your IT team to allow **Web Viewer**, or use one of these instead:
@@ -83,10 +91,11 @@ The poll page gives you the QR code (download it as PNG or SVG for your slides),
 - Open the presenter link in a browser window on the projector and press **F** for full screen.
 
 The presenter link contains a private key, so only people you give it to can open the results screen.
-The page scales to any slide size and can show the QR code next to the results. You can turn that off per poll.
+The page scales to any slide size and can show the QR code next to the results. You can turn that off per activity.
+With several questions, the presenter shows them **side by side** in their colors, like a voting wall. To give a question its own slide, pick it under **Show** on the activity page; the link then ends in `&q=2`, for example.
 You can also open the link in a browser window on the projector (press **F** or double-click for full screen), or share that window in Teams or Zoom.
 
-During a session you control everything from the poll's admin page, e.g. on your laptop or phone.
+During a session you control everything from the activity's admin page, e.g. on your laptop or phone.
 **Close voting** or **Hide results** there, and the slide updates instantly.
 
 ---
@@ -108,7 +117,7 @@ Each open presenter or admin screen holds one connection to the server. That's c
 
 Push changes to the deployed branch and click **Deploy** in hPanel's Git page (or let auto-deploy do it).
 Your `config.php`, uploaded images and the database are never touched by a deploy.
-Database changes in new versions are applied automatically on the first request.
+Database changes in new versions are applied automatically on the first request, and existing activities and votes are converted. It's still wise to export a backup first (hPanel → Databases → phpMyAdmin → Export).
 
 ---
 
@@ -170,7 +179,7 @@ storage/               Logs and internal markers (not web-accessible)
 
 ## Roadmap
 
-The data model and UI are built around activity **types**, so new ones slot in next to polls:
+The data model and UI are built around activity **types**, so new ones slot in next to voting:
 
 - **Open feedback / word cloud.** Short text answers that build a live word cloud.
 - **Rating scales.** 1–5 stars or 0–10 sliders, with averages.

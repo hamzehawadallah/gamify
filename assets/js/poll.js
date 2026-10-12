@@ -1,4 +1,4 @@
-/* Poll voting UI — shared by the participant page and the editor's phone preview. */
+/* Question voting UI — shared by the participant page and the editor's phone preview. */
 (function () {
   'use strict';
 

@@ -8,6 +8,7 @@
   </header>
   <main class="stage-main">
     <div>
+      <div class="stage-kicker" id="stage-kicker" dir="auto" hidden></div>
       <h1 class="stage-title" id="stage-title" dir="auto"></h1>
       <p class="stage-desc" id="stage-desc" dir="auto" hidden></p>
     </div>
@@ -20,6 +21,7 @@
       <div class="qr-card-code" id="qr-code"></div>
     </div>
   </aside>
+  <section class="stage-wall" id="stage-wall" hidden></section>
   <footer class="stage-foot">
     <div class="voters" id="voters" aria-label="Recent voters"></div>
     <span class="brand"><?= brand_mark() ?><span><?= e(app_name()) ?></span></span>

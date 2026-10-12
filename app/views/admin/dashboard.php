@@ -8,7 +8,7 @@
   </header>
 
   <?php if (isset($_GET['welcome'])): ?>
-    <div class="welcome"><?= icon('check') ?><span><b>You’re all set.</b> Create your first poll, then open it to get its QR code and presenter link.</span></div>
+    <div class="welcome"><?= icon('check') ?><span><b>You’re all set.</b> Create your first activity, then open it to get its QR code and presenter link.</span></div>
   <?php endif; ?>
 
   <?php if (!$activities): ?>
@@ -21,8 +21,8 @@
         <rect x="76" y="46" width="14" height="44" rx="3" fill="url(#eg)" opacity=".8"/>
       </svg>
       <h2>No activities yet</h2>
-      <p>Create a poll with a question and a few options. Participants scan its QR code and vote from their phones.</p>
-      <a class="btn btn-primary btn-lg" href="<?= e(url('admin/new')) ?>"><?= icon('plus') ?>Create a poll</a>
+      <p>An activity has one QR code and one or more questions. Participants scan it and vote from their phones.</p>
+      <a class="btn btn-primary btn-lg" href="<?= e(url('admin/new')) ?>"><?= icon('plus') ?>Create an activity</a>
     </section>
   <?php else: ?>
     <div class="toolbar">

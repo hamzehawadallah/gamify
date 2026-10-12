@@ -1,4 +1,5 @@
-/* Poll editor: question, options with images (drag to reorder), settings and a live phone preview. */
+/* Activity editor: title and instructions, one or more questions (each with a
+   color, options with images, drag to reorder), settings and a live phone preview. */
 (function () {
   'use strict';
 
@@ -6,41 +7,66 @@
   var h = GM.h;
   var boot = GM.data() || {};
   var existing = boot.editor;
+  var COLORS = boot.colors || ['blue', 'red', 'yellow', 'green', 'purple', 'teal', 'orange', 'indigo'];
+  var MAX_QUESTIONS = boot.maxQuestions || 12;
+  var MAX_OPTIONS = 20;
+
+  function uid() {
+    return 'k' + Math.random().toString(36).slice(2, 9);
+  }
+
+  function makeOption(o) {
+    o = o || {};
+    return { key: uid(), id: o.id || null, label: o.label || '', image: o.image || null, imageUrl: o.image_url || null, uploading: false };
+  }
+
+  function makeQuestion(q, position) {
+    q = q || {};
+    var s = q.settings || {};
+    return {
+      key: uid(),
+      id: q.id || null,
+      title: q.title || '',
+      description: q.description || '',
+      settings: {
+        multiple: !!s.multiple,
+        max_choices: s.max_choices || 0,
+        color: s.color || COLORS[position % COLORS.length]
+      },
+      options: (q.options && q.options.length ? q.options : [{}, {}]).map(makeOption)
+    };
+  }
 
   var state = {
     title: existing ? existing.title : '',
     description: existing ? existing.description : '',
     settings: Object.assign({}, boot.defaults || {}, existing ? existing.settings : {}),
-    options: (existing ? existing.options : [{ label: '' }, { label: '' }]).map(function (o) {
-      return { key: uid(), id: o.id || null, label: o.label || '', image: o.image || null, imageUrl: o.image_url || null, uploading: false };
-    })
+    questions: (existing && existing.questions.length ? existing.questions : [{}]).map(makeQuestion)
   };
+  var focusKey = state.questions[0].key;
   var dirty = false;
   var saving = false;
 
   var form = document.getElementById('editor');
-  var titleEl = document.getElementById('q-title');
-  var descEl = document.getElementById('q-desc');
-  var list = document.getElementById('opt-list');
-  var addBtn = document.getElementById('opt-add');
+  var titleEl = document.getElementById('a-title');
+  var descEl = document.getElementById('a-desc');
+  var qList = document.getElementById('questions');
+  var addQBtn = document.getElementById('add-question');
   var fileInput = document.getElementById('file-input');
   var preview = document.getElementById('preview');
   var note = document.getElementById('editor-note');
   var saveBtn = document.getElementById('save-btn');
-  var maxRow = document.getElementById('max-row');
-  var maxOut = document.getElementById('max-out');
-  var MAX_OPTIONS = 20;
-
-  function uid() {
-    return 'o' + Math.random().toString(36).slice(2, 9);
-  }
 
   function changed() {
     dirty = true;
     schedulePreview();
   }
 
-  /* ---------- Question ---------- */
+  function findQ(key) {
+    return state.questions.filter(function (q) { return q.key === key; })[0];
+  }
+
+  /* ---------- Activity title ---------- */
 
   titleEl.value = state.title;
   descEl.value = state.description;
@@ -51,28 +77,170 @@
   titleEl.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      var first = list.querySelector('.opt-input');
-      if (first) first.focus();
+      descEl.focus();
     }
   });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fitTitle(); fitDesc(); });
 
-  /* ---------- Options ---------- */
+  /* ---------- Questions ---------- */
 
-  function renderOptions(focusKey) {
-    list.innerHTML = '';
-    state.options.forEach(function (o, i) {
-      list.appendChild(optionRow(o, i));
+  function renderQuestions(focus) {
+    qList.innerHTML = '';
+    state.questions.forEach(function (q, qi) {
+      qList.appendChild(questionCard(q, qi));
     });
-    addBtn.hidden = state.options.length >= MAX_OPTIONS;
-    if (focusKey) {
-      var input = list.querySelector('[data-key="' + focusKey + '"] .opt-input');
-      if (input) input.focus();
+    addQBtn.hidden = state.questions.length >= MAX_QUESTIONS;
+    if (focus) {
+      var el = qList.querySelector(focus);
+      if (el) el.focus();
     }
+    updateNote();
     schedulePreview();
   }
 
-  function optionRow(o, i) {
+  function questionCard(q, qi) {
+    var n = state.questions.length;
+    var card = h('div.card.qcard', { 'data-color': q.settings.color, 'data-key': q.key });
+    if (q.isNew) q.isNew = false;
+    else card.style.animation = 'none';
+    card.addEventListener('focusin', function () {
+      if (focusKey !== q.key) {
+        focusKey = q.key;
+        schedulePreview();
+      }
+    });
+
+    // Header: number, color, move, delete
+    var dots = h('div.color-dots', { role: 'radiogroup', 'aria-label': 'Question color' });
+    COLORS.forEach(function (c) {
+      dots.appendChild(h('button.color-dot', {
+        type: 'button', 'data-color': c, title: c, 'aria-label': c + ' color',
+        'aria-pressed': q.settings.color === c ? 'true' : 'false',
+        onclick: function () {
+          q.settings.color = c;
+          focusKey = q.key;
+          changed();
+          renderQuestions();
+        }
+      }));
+    });
+    var up = h('button.btn.btn-icon.btn-sm.btn-plain', { type: 'button', title: 'Move up', 'aria-label': 'Move question up', onclick: function () { moveQ(q, -1); } }, GM.icon('chevron-left'));
+    up.firstChild.style.transform = 'rotate(90deg)';
+    up.disabled = qi === 0;
+    var down = h('button.btn.btn-icon.btn-sm.btn-plain', { type: 'button', title: 'Move down', 'aria-label': 'Move question down', onclick: function () { moveQ(q, 1); } }, GM.icon('chevron-left'));
+    down.firstChild.style.transform = 'rotate(-90deg)';
+    down.disabled = qi === n - 1;
+    var del = h('button.btn.btn-icon.btn-sm.btn-plain.btn-del', { type: 'button', title: 'Delete question', 'aria-label': 'Delete question', onclick: function () { removeQ(q); } }, GM.icon('trash'));
+    del.disabled = n <= 1;
+
+    card.appendChild(h('div.qcard-head', null,
+      h('span.qcard-badge', { text: String(qi + 1) }),
+      h('span.qcard-label', { text: 'Question ' + (qi + 1) }),
+      dots,
+      h('div.qcard-tools', null, up, down, del)));
+
+    // Title + description
+    var title = h('input.qcard-title', {
+      type: 'text', maxlength: '300', dir: 'auto', 'aria-label': 'Question ' + (qi + 1) + ' title',
+      placeholder: n === 1 ? 'Question (optional — uses the activity title)' : 'Question title'
+    });
+    title.value = q.title;
+    title.addEventListener('input', function () { q.title = title.value; changed(); });
+    var desc = h('input.qcard-desc', {
+      type: 'text', maxlength: '1000', dir: 'auto', 'aria-label': 'Question ' + (qi + 1) + ' description',
+      placeholder: 'Short description (optional)'
+    });
+    desc.value = q.description;
+    desc.addEventListener('input', function () { q.description = desc.value; changed(); });
+    card.appendChild(h('div.qcard-fields', null, title, desc));
+
+    // Options
+    var list = h('div.opt-editor');
+    q.options.forEach(function (o, i) { list.appendChild(optionRow(q, o, i, list)); });
+    card.appendChild(list);
+    var add = h('button.opt-add', { type: 'button' }, GM.icon('plus'), 'Add option');
+    add.hidden = q.options.length >= MAX_OPTIONS;
+    add.addEventListener('click', function () { addOption(q); });
+    card.appendChild(add);
+
+    // Multiple choice
+    var multi = h('input.switch', { type: 'checkbox', 'aria-label': 'Allow multiple answers' });
+    multi.checked = q.settings.multiple;
+    multi.addEventListener('change', function () {
+      q.settings.multiple = multi.checked;
+      if (!multi.checked) q.settings.max_choices = 0;
+      focusKey = q.key;
+      changed();
+      renderQuestions();
+    });
+    var foot = h('div.qcard-foot', null, h('label', null, multi, 'Allow multiple answers'));
+    if (q.settings.multiple) {
+      var out = h('output', { text: q.settings.max_choices ? 'Up to ' + q.settings.max_choices : 'No limit' });
+      var step = function (d) {
+        var v = (q.settings.max_choices || 0) + d;
+        var limit = Math.max(2, q.options.length);
+        if (v < 0) v = 0;
+        if (v === 1) v = d > 0 ? 2 : 0;
+        if (v > limit) v = 0;
+        q.settings.max_choices = v;
+        out.textContent = v ? 'Up to ' + v : 'No limit';
+        changed();
+      };
+      foot.appendChild(h('span.stepper', null,
+        h('button', { type: 'button', 'aria-label': 'Fewer', text: '−', onclick: function () { step(-1); } }),
+        out,
+        h('button', { type: 'button', 'aria-label': 'More', text: '+', onclick: function () { step(1); } })));
+    }
+    card.appendChild(foot);
+    return card;
+  }
+
+  function addQuestion() {
+    if (state.questions.length >= MAX_QUESTIONS) return;
+    var q = makeQuestion({}, state.questions.length);
+    q.isNew = true;
+    state.questions.push(q);
+    focusKey = q.key;
+    changed();
+    renderQuestions('[data-key="' + q.key + '"] .qcard-title');
+    var card = qList.querySelector('[data-key="' + q.key + '"]');
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function removeQ(q) {
+    if (state.questions.length <= 1) return;
+    var filled = q.options.some(function (o) { return o.label.trim() || o.image; }) || q.title.trim();
+    var go = function () {
+      state.questions.splice(state.questions.indexOf(q), 1);
+      if (focusKey === q.key) focusKey = state.questions[0].key;
+      changed();
+      renderQuestions();
+    };
+    if (!filled) return go();
+    GM.confirm({
+      title: 'Delete this question?',
+      message: q.id ? 'Its options and any votes on it will be removed when you save.' : 'Its options will be removed.',
+      confirmLabel: 'Delete',
+      danger: true
+    }).then(function (ok) { if (ok) go(); });
+  }
+
+  function moveQ(q, delta) {
+    var i = state.questions.indexOf(q);
+    var j = i + delta;
+    if (j < 0 || j >= state.questions.length) return;
+    state.questions.splice(i, 1);
+    state.questions.splice(j, 0, q);
+    focusKey = q.key;
+    changed();
+    renderQuestions();
+  }
+
+  addQBtn.addEventListener('click', addQuestion);
+
+  /* ---------- Options ---------- */
+
+  function optionRow(q, o, i, list) {
     var row = h('div.opt-row', { 'data-key': o.key });
     if (o.isNew) {
       row.classList.add('is-new');
@@ -80,11 +248,11 @@
     }
 
     var handle = h('button.drag-handle', { type: 'button', 'aria-label': 'Drag to reorder', title: 'Drag to reorder' }, GM.icon('grip'));
-    handle.addEventListener('pointerdown', function (e) { startDrag(e, row, o); });
+    handle.addEventListener('pointerdown', function (e) { startDrag(e, q, row, o, list); });
     handle.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
-        move(o, e.key === 'ArrowUp' ? -1 : 1);
+        moveOption(q, o, e.key === 'ArrowUp' ? -1 : 1);
       }
     });
 
@@ -110,33 +278,25 @@
     input.value = o.label;
     input.addEventListener('input', function () { o.label = input.value; changed(); });
     input.addEventListener('keydown', function (e) {
+      var idx = q.options.indexOf(o);
       if (e.key === 'Enter') {
         e.preventDefault();
-        var idx = state.options.indexOf(o);
-        var next = state.options[idx + 1];
-        if (next) {
-          var el = list.querySelector('[data-key="' + next.key + '"] .opt-input');
-          if (el) el.focus();
-        } else if (o.label.trim() || o.image) {
-          addOption();
-        }
-      } else if (e.key === 'Backspace' && input.value === '' && !o.image && state.options.length > 2) {
+        var next = q.options[idx + 1];
+        if (next) focusOption(next);
+        else if (o.label.trim() || o.image) addOption(q);
+      } else if (e.key === 'Backspace' && input.value === '' && !o.image && q.options.length > 2) {
         e.preventDefault();
-        var at = state.options.indexOf(o);
-        removeOption(o);
-        var prev = state.options[Math.max(0, at - 1)];
-        if (prev) {
-          var p = list.querySelector('[data-key="' + prev.key + '"] .opt-input');
-          if (p) p.focus();
-        }
+        removeOption(q, o);
+        var prev = q.options[Math.max(0, idx - 1)];
+        if (prev) focusOption(prev);
       }
     });
 
     var remove = h('button.btn.btn-icon.btn-sm.btn-plain.btn-remove', {
       type: 'button', 'aria-label': 'Remove option ' + (i + 1), title: 'Remove option'
     }, GM.icon('x'));
-    remove.disabled = state.options.length <= 2;
-    remove.addEventListener('click', function () { removeOption(o); });
+    remove.disabled = q.options.length <= 2;
+    remove.addEventListener('click', function () { removeOption(q, o); });
 
     row.appendChild(handle);
     row.appendChild(slot);
@@ -147,7 +307,7 @@
           o.image = null;
           o.imageUrl = null;
           changed();
-          renderOptions();
+          renderQuestions();
         }
       }, GM.icon('x')));
     }
@@ -156,48 +316,51 @@
     return row;
   }
 
-  function addOption() {
-    if (state.options.length >= MAX_OPTIONS) return;
-    var o = { key: uid(), id: null, label: '', image: null, imageUrl: null, isNew: true };
-    state.options.push(o);
-    changed();
-    renderOptions(o.key);
+  function focusOption(o) {
+    var el = qList.querySelector('[data-key="' + o.key + '"] .opt-input');
+    if (el) el.focus();
   }
 
-  function removeOption(o) {
-    if (state.options.length <= 2) return;
-    state.options.splice(state.options.indexOf(o), 1);
+  function addOption(q) {
+    if (q.options.length >= MAX_OPTIONS) return;
+    var o = makeOption();
+    o.isNew = true;
+    q.options.push(o);
+    focusKey = q.key;
     changed();
-    renderOptions();
-    updateNote();
+    renderQuestions();
+    focusOption(o);
   }
 
-  function move(o, delta) {
-    var i = state.options.indexOf(o);
+  function removeOption(q, o) {
+    if (q.options.length <= 2) return;
+    q.options.splice(q.options.indexOf(o), 1);
+    changed();
+    renderQuestions();
+  }
+
+  function moveOption(q, o, delta) {
+    var i = q.options.indexOf(o);
     var j = i + delta;
-    if (j < 0 || j >= state.options.length) return;
-    state.options.splice(i, 1);
-    state.options.splice(j, 0, o);
+    if (j < 0 || j >= q.options.length) return;
+    q.options.splice(i, 1);
+    q.options.splice(j, 0, o);
     changed();
-    renderOptions();
-    var handle = list.querySelector('[data-key="' + o.key + '"] .drag-handle');
+    renderQuestions();
+    var handle = qList.querySelector('[data-key="' + o.key + '"] .drag-handle');
     if (handle) handle.focus();
   }
 
-  addBtn.addEventListener('click', addOption);
-
-  /* Drag to reorder (mouse, pen and touch) */
-  function startDrag(e, row, o) {
+  /* Drag to reorder options within a question (mouse, pen and touch) */
+  function startDrag(e, q, row, o, list) {
     if (e.button !== undefined && e.button !== 0) return;
     e.preventDefault();
     var rows = GM.qsa('.opt-row', list);
     var startY = e.clientY;
-    var rect = row.getBoundingClientRect();
-    var height = rect.height;
-    var from = state.options.indexOf(o);
+    var height = row.getBoundingClientRect().height;
+    var from = q.options.indexOf(o);
     var to = from;
     row.classList.add('is-dragging');
-    row.setPointerCapture && row.setPointerCapture(e.pointerId);
 
     function onMove(ev) {
       var dy = ev.clientY - startY;
@@ -216,14 +379,12 @@
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
       document.removeEventListener('pointercancel', onUp);
-      rows.forEach(function (r) { r.style.transform = ''; r.style.transition = ''; });
-      row.classList.remove('is-dragging');
       if (to !== from) {
-        state.options.splice(from, 1);
-        state.options.splice(to, 0, o);
+        q.options.splice(from, 1);
+        q.options.splice(to, 0, o);
         changed();
       }
-      renderOptions();
+      renderQuestions();
     }
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
@@ -271,7 +432,7 @@
     var localUrl = URL.createObjectURL(file);
     var previous = { image: o.image, imageUrl: o.imageUrl };
     o.imageUrl = localUrl;
-    renderOptions();
+    renderQuestions();
     shrink(file)
       .then(function (f) {
         var fd = new FormData();
@@ -291,40 +452,20 @@
       .then(function () {
         o.uploading = false;
         URL.revokeObjectURL(localUrl);
-        renderOptions();
+        renderQuestions();
       });
   }
 
-  /* ---------- Settings ---------- */
+  /* ---------- Activity settings ---------- */
 
   GM.qsa('[data-setting]').forEach(function (input) {
     var key = input.getAttribute('data-setting');
     input.checked = !!state.settings[key];
     input.addEventListener('change', function () {
       state.settings[key] = input.checked;
-      syncMax();
       changed();
     });
   });
-
-  function syncMax() {
-    maxRow.hidden = !state.settings.multiple;
-    var n = state.settings.max_choices || 0;
-    maxOut.textContent = n === 0 ? 'No limit' : String(n);
-  }
-  GM.qsa('[data-step]', maxRow).forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var n = (state.settings.max_choices || 0) + parseInt(btn.getAttribute('data-step'), 10);
-      var limit = Math.max(2, state.options.length);
-      if (n < 0) n = 0;
-      if (n === 1) n = btn.getAttribute('data-step') === '1' ? 2 : 0;
-      if (n > limit) n = 0;
-      state.settings.max_choices = n;
-      syncMax();
-      changed();
-    });
-  });
-  syncMax();
 
   /* ---------- Phone preview ---------- */
 
@@ -338,36 +479,47 @@
     });
   }
 
-  var previewSelected = [];
+  var previewSelected = {};
   function renderPreview() {
-    var opts = state.options.map(function (o, i) {
-      return { id: i + 1, label: o.label.trim(), image: o.imageUrl };
-    });
-    var activity = {
-      title: state.title.trim() || 'Your question',
-      description: state.description.trim(),
-      settings: state.settings,
-      options: opts
+    var qs = state.questions;
+    var qi = Math.max(0, qs.indexOf(findQ(focusKey)));
+    var q = qs[qi];
+    var multi = qs.length > 1;
+    var activityTitle = state.title.trim() || 'Your activity';
+    var qTitle = q.title.trim() || (multi ? 'Question ' + (qi + 1) : activityTitle);
+    var question = {
+      title: qTitle,
+      settings: q.settings,
+      options: q.options.map(function (o, i) { return { id: i + 1, label: o.label.trim(), image: o.imageUrl }; })
     };
-    previewSelected = previewSelected.filter(function (id) { return id <= opts.length; });
-    var submit = h('button.btn.btn-primary.btn-lg.btn-block', { type: 'button', text: 'Submit vote', tabindex: '-1' });
-    submit.disabled = !previewSelected.length;
+    var sel = (previewSelected[q.key] || []).filter(function (id) { return id <= question.options.length; });
+    var submit = h('button.btn.btn-primary.btn-lg.btn-block', { type: 'button', text: multi && qi < qs.length - 1 ? 'Next' : 'Submit', tabindex: '-1' });
+    submit.disabled = !sel.length;
+
+    var view = h('section.p-view', { 'data-color': q.settings.color });
+    if (multi || qTitle !== activityTitle) view.appendChild(h('div.p-activity', null, GM.icon('poll'), h('span', { text: activityTitle })));
+    if (multi && qi === 0 && state.description.trim()) view.appendChild(h('p.p-activity-desc', { dir: 'auto', text: state.description.trim() }));
+    if (multi) {
+      var bars = h('div.p-progress-bars');
+      qs.forEach(function (x, k) { bars.appendChild(h('span' + (k === qi ? '.is-current' : k < qi ? '.is-done' : ''))); });
+      view.appendChild(h('div.p-progress', null, bars, h('span.p-progress-count', { text: (qi + 1) + ' of ' + qs.length })));
+    }
+    view.appendChild(h('h1.p-title', { dir: 'auto', text: qTitle }));
+    if (!multi && state.description.trim()) view.appendChild(h('p.p-desc', { dir: 'auto', text: state.description.trim() }));
+    if (q.description.trim()) view.appendChild(h('p.p-desc', { dir: 'auto', text: q.description.trim() }));
+    view.appendChild(h('p.p-hint', { text: GM.Poll.hint(q.settings) }));
+    view.appendChild(GM.Poll.options(question, sel, function (s) {
+      previewSelected[q.key] = s;
+      submit.disabled = !s.length;
+    }));
+
     var scroll = preview.querySelector('.p-shell');
     var scrollTop = scroll ? scroll.scrollTop : 0;
-
     var shell = h('div.p-shell', { 'aria-hidden': 'true' },
       h('header.p-top', null,
         h('span.brand', null, h('img.brand-mark', { src: document.querySelector('.nav .brand-mark').src, alt: '' }), GM.config.appName || ''),
         h('span.me-chip', null, GM.avatar('Alex Morgan', 3), h('span', { text: 'Alex' }))),
-      h('main.p-main', null, h('section.p-view', null,
-        h('span.p-kicker', null, GM.icon('poll'), 'Poll'),
-        h('h1.p-title', { dir: 'auto', text: activity.title }),
-        activity.description ? h('p.p-desc', { dir: 'auto', text: activity.description }) : null,
-        h('p.p-hint', { text: GM.Poll.hint(state.settings) }),
-        GM.Poll.options(activity, previewSelected, function (sel) {
-          previewSelected = sel;
-          submit.disabled = !sel.length;
-        }))),
+      h('main.p-main', null, view),
       h('div.p-actions', null, h('div.p-actions-inner', null, submit)));
 
     preview.innerHTML = '';
@@ -380,33 +532,43 @@
 
   function updateNote() {
     if (existing && existing.votes > 0) {
-      note.textContent = 'This poll has ' + GM.plural(existing.votes, 'vote', 'votes') + '. Removing an option also removes its votes.';
+      note.textContent = GM.plural(existing.votes, 'person has', 'people have') + ' voted. Removing an option or question also removes its votes.';
     }
   }
-  updateNote();
+
+  function focusProblem(q, selector) {
+    focusKey = q.key;
+    renderQuestions(selector);
+    var card = qList.querySelector('[data-key="' + q.key + '"]');
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     if (saving) return;
     if (!state.title.trim()) {
-      GM.toast('Add a question first.', 'error');
+      GM.toast('Give the activity a title first.', 'error');
       titleEl.focus();
       return;
     }
-    var filled = state.options.filter(function (o) { return o.label.trim() || o.image; });
-    if (filled.length < 2) {
-      GM.toast('Add at least two options.', 'error');
-      var empty = list.querySelector('.opt-input');
-      GM.qsa('.opt-input', list).some(function (inp) {
-        if (!inp.value.trim()) { empty = inp; return true; }
-        return false;
-      });
-      if (empty) empty.focus();
-      return;
-    }
-    if (state.options.some(function (o) { return o.uploading; })) {
-      GM.toast('Wait for the images to finish uploading.', 'error');
-      return;
+    var multi = state.questions.length > 1;
+    for (var i = 0; i < state.questions.length; i++) {
+      var q = state.questions[i];
+      var filled = q.options.filter(function (o) { return o.label.trim() || o.image; });
+      if (multi && !q.title.trim()) {
+        GM.toast('Give question ' + (i + 1) + ' a title.', 'error');
+        focusProblem(q, '[data-key="' + q.key + '"] .qcard-title');
+        return;
+      }
+      if (filled.length < 2) {
+        GM.toast('Question ' + (i + 1) + ' needs at least two options.', 'error');
+        focusProblem(q, '[data-key="' + q.key + '"] .opt-input');
+        return;
+      }
+      if (q.options.some(function (o) { return o.uploading; })) {
+        GM.toast('Wait for the images to finish uploading.', 'error');
+        return;
+      }
     }
 
     var body = {
@@ -414,7 +576,17 @@
       title: state.title,
       description: state.description,
       settings: state.settings,
-      options: filled.map(function (o) { return { id: o.id, label: o.label, image: o.image }; })
+      questions: state.questions.map(function (q) {
+        return {
+          id: q.id,
+          title: q.title,
+          description: q.description,
+          settings: q.settings,
+          options: q.options
+            .filter(function (o) { return o.label.trim() || o.image; })
+            .map(function (o) { return { id: o.id, label: o.label, image: o.image }; })
+        };
+      })
     };
     saving = true;
     GM.busy(saveBtn, true);
@@ -439,6 +611,6 @@
     }
   });
 
-  renderOptions();
+  renderQuestions();
   if (!existing) setTimeout(function () { titleEl.focus(); }, 200);
 })();

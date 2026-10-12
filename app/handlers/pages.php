@@ -53,6 +53,7 @@ function page_present(string $code): void
         'data' => [
             'key' => (string) ($_GET['key'] ?? ''),
             'qr' => isset($_GET['qr']) ? $_GET['qr'] !== '0' : null,
+            'question' => max(0, (int) ($_GET['q'] ?? 0)), // 0 = all questions, N = only question N
             'live' => activity_live_payload($activity, false),
         ],
         'scripts' => ['vendor/qrcode.js', 'js/results.js', 'js/present.js'],

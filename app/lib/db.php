@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const GM_SCHEMA_VERSION = 1;
+const GM_SCHEMA_VERSION = 2;
 
 function db_connect(array $c): PDO
 {
@@ -76,7 +76,8 @@ function db_tx(callable $fn)
 
 /**
  * Every schema change gets a new numbered step. Steps only ever run once.
- * To change the schema later: add step 2, 3 … and bump GM_SCHEMA_VERSION.
+ * To change the schema later: add the next step and bump GM_SCHEMA_VERSION.
+ * A step is a list of SQL strings and/or callables taking the PDO connection.
  */
 function gm_migrations(): array
 {
@@ -144,6 +145,22 @@ function gm_migrations(): array
                 PRIMARY KEY (ip)
             ) $table",
         ],
+        // Activities hold one or more questions; options and votes belong to a question.
+        2 => [
+            "CREATE TABLE IF NOT EXISTS gm_questions (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                activity_id INT UNSIGNED NOT NULL,
+                title VARCHAR(300) NOT NULL DEFAULT '',
+                description TEXT NULL,
+                settings TEXT NOT NULL,
+                position SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+                PRIMARY KEY (id),
+                KEY idx_questions_activity (activity_id, position),
+                CONSTRAINT fk_questions_activity FOREIGN KEY (activity_id)
+                    REFERENCES gm_activities (id) ON DELETE CASCADE
+            ) $table",
+            'db_migrate_questions',
+        ],
     ];
 }
 
@@ -163,7 +180,11 @@ function db_migrate(PDO $pdo): void
                 continue;
             }
             foreach ($statements as $sql) {
-                $pdo->exec($sql);
+                if (is_callable($sql)) {
+                    $sql($pdo);
+                } else {
+                    $pdo->exec($sql);
+                }
             }
             $stmt = $pdo->prepare("REPLACE INTO gm_meta (k, v) VALUES ('schema_version', ?)");
             $stmt->execute([(string) $version]);
@@ -182,4 +203,67 @@ function ensure_schema(): void
     }
     db_migrate(db());
     @file_put_contents($marker, (string) GM_SCHEMA_VERSION);
+}
+
+function db_column_exists(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare('SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+    $stmt->execute([$table, $column]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function db_constraint_exists(PDO $pdo, string $table, string $name): bool
+{
+    $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?');
+    $stmt->execute([$table, $name]);
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * Schema step 2: move each existing activity's options and votes into a
+ * first question, carrying over its single/multiple-choice settings.
+ * Safe to re-run if it was interrupted halfway.
+ */
+function db_migrate_questions(PDO $pdo): void
+{
+    foreach (['gm_options', 'gm_responses'] as $table) {
+        if (!db_column_exists($pdo, $table, 'question_id')) {
+            $pdo->exec("ALTER TABLE $table ADD COLUMN question_id INT UNSIGNED NULL AFTER activity_id");
+        }
+    }
+
+    $activities = $pdo->query(
+        'SELECT a.id, a.settings FROM gm_activities a
+          WHERE NOT EXISTS (SELECT 1 FROM gm_questions q WHERE q.activity_id = a.id)'
+    )->fetchAll();
+    $insert = $pdo->prepare("INSERT INTO gm_questions (activity_id, title, description, settings, position) VALUES (?, '', '', ?, 0)");
+    foreach ($activities as $a) {
+        $old = json_decode((string) $a['settings'], true) ?: [];
+        $insert->execute([$a['id'], json_encode([
+            'multiple' => !empty($old['multiple']),
+            'max_choices' => (int) ($old['max_choices'] ?? 0),
+            'color' => 'blue',
+        ])]);
+    }
+
+    foreach (['gm_options', 'gm_responses'] as $table) {
+        $pdo->exec("UPDATE $table t
+                      JOIN (SELECT activity_id, MIN(id) AS qid FROM gm_questions GROUP BY activity_id) q
+                        ON q.activity_id = t.activity_id
+                       SET t.question_id = q.qid
+                     WHERE t.question_id IS NULL");
+    }
+
+    if (!db_constraint_exists($pdo, 'gm_options', 'fk_options_question')) {
+        $pdo->exec('ALTER TABLE gm_options
+            MODIFY question_id INT UNSIGNED NOT NULL,
+            ADD KEY idx_options_question (question_id, position),
+            ADD CONSTRAINT fk_options_question FOREIGN KEY (question_id) REFERENCES gm_questions (id) ON DELETE CASCADE');
+    }
+    if (!db_constraint_exists($pdo, 'gm_responses', 'fk_responses_question')) {
+        $pdo->exec('ALTER TABLE gm_responses
+            MODIFY question_id INT UNSIGNED NOT NULL,
+            ADD KEY idx_responses_question (question_id, participant_id),
+            ADD CONSTRAINT fk_responses_question FOREIGN KEY (question_id) REFERENCES gm_questions (id) ON DELETE CASCADE');
+    }
 }

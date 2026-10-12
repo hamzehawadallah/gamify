@@ -28,7 +28,7 @@
         <button role="menuitem" type="button" data-action="duplicate"><?= icon('copy') ?>Duplicate</button>
         <hr>
         <button role="menuitem" type="button" data-action="reset"><?= icon('reset') ?>Clear all votes</button>
-        <button role="menuitem" type="button" data-action="delete" class="danger"><?= icon('trash') ?>Delete poll</button>
+        <button role="menuitem" type="button" data-action="delete" class="danger"><?= icon('trash') ?>Delete activity</button>
       </div>
     </div>
     <a class="btn btn-primary btn-sm" id="present-btn" href="<?= e($data['present_url']) ?>" target="_blank" rel="noopener"><?= icon('present') ?>Present</a>
@@ -36,15 +36,13 @@
 
   <div class="act-grid">
     <div class="act-col">
-      <section class="card results-card">
-        <div class="card-head">
-          <div>
-            <h2 class="card-title">Live results</h2>
-          </div>
-          <span class="card-sub" style="display:inline-flex;align-items:center;gap:8px"><span class="live-dot" id="live-dot"></span><span id="voter-count">0 votes</span></span>
+      <section>
+        <div class="results-head">
+          <h2 class="card-title">Live results</h2>
+          <span class="card-sub" style="display:inline-flex;align-items:center;gap:8px"><span class="live-dot" id="live-dot"></span><span id="voter-count">0 people</span></span>
         </div>
         <div class="hidden-banner" id="hidden-banner" hidden><?= icon('eye-off') ?><span>Results are hidden on the presenter screen and phones. Only you can see them.</span></div>
-        <div id="results"></div>
+        <div class="qresults" id="qresults"></div>
       </section>
 
       <section class="card">
@@ -80,6 +78,10 @@
           </div>
         </div>
         <p class="muted" style="font-size:14px">Use this link in PowerPoint, or open it on the projector. Results update live.</p>
+        <label class="row" id="present-q-row" hidden>
+          <span style="font-size:14px;font-weight:500">Show</span>
+          <select class="select" id="present-q"></select>
+        </label>
         <div class="copy-field"><span id="present-url"></span><button class="btn btn-sm btn-plain" type="button" data-copy="present"><?= icon('copy') ?>Copy</button></div>
         <details class="disclosure">
           <summary>Add to PowerPoint <?= icon('chevron-right') ?></summary>

@@ -11,11 +11,12 @@
       : h('span.status.is-closed', null, GM.icon('lock'), 'Closed');
     return h('a.a-card', { href: GM.url('admin/activity/' + a.id), style: { '--i': Math.min(i, 12) } },
       a.cover ? h('div.a-card-cover', { style: { backgroundImage: 'url("' + a.cover + '")' } }) : null,
-      h('div.a-card-top', null, h('span.pill.pill-accent', null, GM.icon('poll'), 'Poll'), status),
+      h('div.a-card-top', null,
+        h('span.pill.pill-accent', null, GM.icon('poll'), GM.plural(a.question_count, 'question', 'questions')),
+        status),
       h('h2.a-card-title', { dir: 'auto', text: a.title }),
       h('div.a-card-meta', null,
-        h('span', null, GM.icon('users'), String(a.voters)),
-        h('span', null, GM.icon('list'), String(a.option_count)),
+        h('span', { title: 'People who took part' }, GM.icon('users'), String(a.voters)),
         h('span.code', { text: GM.fmtCode(a.code) })));
   }
 

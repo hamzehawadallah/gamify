@@ -20,11 +20,17 @@
   var presentUrlEl = $('#present-url');
   var presentBtn = $('#present-btn');
 
-  var results = new GM.Results($('#results'));
+  var qresultsEl = $('#qresults');
+  var qcards = null; // { key, items: [{ results, sub }] }
   var seen = null;
   var busy = false;
 
   /* ---------- Render ---------- */
+
+  function qTitle(a, q, i) {
+    if (q.title) return q.title;
+    return a.questions.length === 1 ? a.title : 'Question ' + (i + 1);
+  }
 
   function render(p) {
     payload = p;
@@ -38,22 +44,51 @@
       : h('span.pill', null, GM.icon('lock'), 'Voting closed'));
     if (a.results_hidden) metaEl.appendChild(h('span.pill.pill-orange', null, GM.icon('eye-off'), 'Results hidden'));
     metaEl.appendChild(h('span.pill', null, GM.icon('qr'), 'Code ' + GM.fmtCode(p.join.code)));
-    if (a.settings.multiple) {
-      metaEl.appendChild(h('span.pill', { text: a.settings.max_choices ? 'Up to ' + a.settings.max_choices + ' choices' : 'Multiple choice' }));
-    }
+    metaEl.appendChild(h('span.pill', null, GM.icon('list'), GM.plural(a.questions.length, 'question', 'questions')));
 
     statusSeg.set(a.status);
     hiddenSwitch.checked = !!a.results_hidden;
     hiddenBanner.hidden = !a.results_hidden;
-    countEl.textContent = p.results.voters + ' ' + GM.voterWord(p.results.voters, a.settings.multiple);
+    countEl.textContent = GM.plural(p.results.voters, 'person', 'people');
 
-    results.update(a, p.results);
+    renderQuestions(p);
     renderResponses(p);
+    syncQuestionPicker(a);
+  }
+
+  /** One card per question with its live results. Rebuilt only when the questions change. */
+  function renderQuestions(p) {
+    var a = p.activity;
+    var key = JSON.stringify(a.questions.map(function (q) { return [q.id, q.title, q.description, q.color]; }));
+    if (!qcards || qcards.key !== key) {
+      qresultsEl.innerHTML = '';
+      qcards = { key: key, items: [] };
+      a.questions.forEach(function (q, i) {
+        var sub = h('span.card-sub');
+        var host = h('div');
+        qresultsEl.appendChild(h('section.card.results-card', { 'data-color': q.color || 'blue' },
+          h('div.qresult-head', null,
+            h('span.qcard-badge', { text: String(i + 1) }),
+            h('h3.card-title', { dir: 'auto', text: qTitle(a, q, i) }),
+            sub),
+          q.description ? h('p.qresult-desc', { dir: 'auto', text: q.description }) : null,
+          host));
+        qcards.items.push({ results: new GM.Results(host), sub: sub });
+      });
+    }
+    a.questions.forEach(function (q, i) {
+      var r = p.results.questions[i] || { voters: 0, counts: [] };
+      qcards.items[i].sub.textContent = r.voters + ' ' + GM.voterWord(r.voters, q.settings.multiple);
+      qcards.items[i].results.update({ options: q.options, status: a.status }, r);
+    });
   }
 
   function renderResponses(p) {
+    var a = p.activity;
     var labels = {};
-    p.activity.options.forEach(function (o, i) { labels[o.id] = o.label || 'Option ' + (i + 1); });
+    a.questions.forEach(function (q) {
+      q.options.forEach(function (o, i) { labels[o.id] = o.label || 'Option ' + (i + 1); });
+    });
     var rows = p.responses || [];
     respCount.textContent = rows.length ? GM.plural(rows.length, 'person', 'people') : '';
     respList.innerHTML = '';
@@ -62,15 +97,25 @@
         h('span', { text: 'No votes yet.' }),
         h('span', { text: 'Share the QR code to get started.' })));
     }
+    var multi = a.questions.length > 1;
     var nowSeen = {};
     rows.forEach(function (r) {
       var key = r.participant_id + '@' + r.at;
       nowSeen[key] = true;
-      var answer = r.option_ids.map(function (oid) { return labels[oid] || '—'; }).join(', ');
+      var answerEl = h('span.resp-answer' + (multi ? '.is-multi' : ''), { dir: 'auto' });
+      var plain = [];
+      a.questions.forEach(function (q, i) {
+        var ids = (r.answers && r.answers[q.id]) || [];
+        if (!ids.length) return;
+        var text = ids.map(function (oid) { return labels[oid] || '—'; }).join(', ');
+        plain.push((multi ? qTitle(a, q, i) + ': ' : '') + text);
+        answerEl.appendChild(multi ? h('span.ans', { 'data-color': q.color || 'blue', text: text }) : document.createTextNode(text));
+      });
+      answerEl.title = plain.join('\n');
       respList.appendChild(h('div.resp-row' + (seen && !seen[key] ? '.is-new' : ''), null,
         GM.avatar(r.name, r.participant_id),
         h('span.resp-name', { dir: 'auto', text: r.name }),
-        h('span.resp-answer', { dir: 'auto', text: answer, title: answer }),
+        answerEl,
         h('time.resp-time', { datetime: r.at, 'data-at': r.at, text: GM.timeAgo(r.at) })));
     });
     seen = nowSeen;
@@ -109,13 +154,33 @@
 
   // Present link + theme
   var theme = GM.store.get('presentTheme') || 'light';
+  var pickQ = $('#present-q');
+  var pickRow = $('#present-q-row');
+  var pickKey = null;
   function presentUrl() {
-    return data.present_url + '&theme=' + theme;
+    var q = pickQ && pickQ.value !== '0' ? '&q=' + pickQ.value : '';
+    return data.present_url + '&theme=' + theme + q;
+  }
+  /** "Show: All questions / Question 1 …" — only when there is more than one question. */
+  function syncQuestionPicker(a) {
+    var key = JSON.stringify(a.questions.map(function (q) { return q.title; }));
+    if (key === pickKey) return;
+    pickKey = key;
+    var current = pickQ.value || '0';
+    pickQ.innerHTML = '';
+    pickQ.appendChild(h('option', { value: '0', text: 'All questions side by side' }));
+    a.questions.forEach(function (q, i) {
+      pickQ.appendChild(h('option', { value: String(i + 1), text: (i + 1) + '. ' + qTitle(a, q, i) }));
+    });
+    pickQ.value = Number(current) <= a.questions.length ? current : '0';
+    pickRow.hidden = a.questions.length < 2;
+    if (typeof syncPresent === 'function') syncPresent();
   }
   function syncPresent() {
     presentUrlEl.textContent = presentUrl();
     presentBtn.href = presentUrl();
   }
+  pickQ.addEventListener('change', syncPresent);
   GM.segmented($('#theme-seg'), theme, function (v) {
     theme = v;
     GM.store.set('presentTheme', v);
@@ -197,7 +262,7 @@
     }
     if (action === 'delete') {
       GM.confirm({
-        title: 'Delete this poll?',
+        title: 'Delete this activity?',
         message: 'Its QR code and presenter link will stop working, and all votes will be removed.',
         confirmLabel: 'Delete',
         danger: true
@@ -224,7 +289,7 @@
     },
     onGone: function (err) {
       if (err.status === 401) window.location.href = GM.url('admin/login');
-      else GM.toast('This poll was deleted.', 'error');
+      else GM.toast('This activity was deleted.', 'error');
     }
   });
 })();
