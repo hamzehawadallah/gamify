@@ -148,7 +148,6 @@
   }
 
   function renderName(prefill) {
-    var avatar = GM.avatar('?', 'x', 'p-name-avatar');
     var input = h('input.input.input-xl', {
       type: 'text', name: 'name', maxlength: '60', placeholder: 'Your name', autocomplete: 'name',
       autocapitalize: 'words', enterkeyhint: 'go', spellcheck: 'false', 'aria-label': 'Your name', dir: 'auto'
@@ -160,8 +159,6 @@
     function sync() {
       var v = input.value.trim();
       btn.disabled = v === '';
-      avatar.textContent = v ? GM.initials(v) : '?';
-      avatar.setAttribute('data-hue', v ? GM.hue(v) : 7);
     }
     input.addEventListener('input', sync);
     sync();
@@ -187,9 +184,8 @@
     });
 
     main.appendChild(h('section.p-view.p-name', null,
-      avatar,
       h('h1.p-title', { text: 'What’s your name?' }),
-      h('p.p-desc', { text: 'Join ' + (state.activity ? '“' + state.activity.title + '”' : 'the activity') + ' in one tap.' }),
+      state.activity ? h('p.p-desc', { dir: 'auto', text: state.activity.title }) : null,
       form));
     setTimeout(function () { if (!input.value) input.focus(); }, 350);
   }
@@ -228,10 +224,10 @@
     }, { disabled: locked });
     syncButton();
 
-    var view = h('section.p-view', { 'data-color': q.color || 'blue' });
+    var view = h('section.p-view', { 'data-color': q.color || 'red' });
     var titleText = qTitle(q, i);
     if (multi || a.title !== titleText) {
-      view.appendChild(h('div.p-activity', null, GM.icon('poll'), h('span', { dir: 'auto', text: a.title })));
+      view.appendChild(h('div.p-activity', null, h('span', { dir: 'auto', text: a.title })));
     }
     if (multi && i === 0 && a.description) {
       view.appendChild(h('p.p-activity-desc', { dir: 'auto', text: a.description }));
@@ -357,7 +353,7 @@
     var summary = h('div.p-summary');
     qs.forEach(function (q, i) {
       var picks = (state.my[q.id] || []).map(function (id) { return optionLabel(q, id); }).filter(Boolean);
-      var card = h('div.p-summary-card', { 'data-color': q.color || 'blue' },
+      var card = h('div.p-summary-card', { 'data-color': q.color || 'red' },
         qs.length > 1 ? h('div.p-summary-q', { dir: 'auto', text: qTitle(q, i) }) : null,
         h('div.p-summary-a' + (picks.length ? '' : '.is-empty'), { dir: 'auto', text: picks.length ? picks.join(', ') : 'Skipped' }));
       var r = state.results && state.results.questions && state.results.questions[i];

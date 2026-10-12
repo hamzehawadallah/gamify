@@ -24,7 +24,7 @@
   <section class="stage-wall" id="stage-wall" hidden></section>
   <footer class="stage-foot">
     <div class="voters" id="voters" aria-label="Recent voters"></div>
-    <span class="brand"><?= brand_mark() ?><span><?= e(app_name()) ?></span></span>
+    <span class="brand"><?= brand_logo('', ($theme ?? '') === 'dark') ?></span>
   </footer>
 </div>
 <script type="application/json" id="gm-data"><?= json_for_html($data) ?></script>

@@ -10,7 +10,7 @@ define('GM_VERSION', '1.0.0');
 if (PHP_VERSION_ID < 80000) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=utf-8');
-    echo 'Gamify needs PHP 8.0 or newer. On Hostinger: hPanel → Advanced → PHP Configuration.';
+    echo 'VCL Gamify needs PHP 8.0 or newer. On Hostinger: hPanel → Advanced → PHP Configuration.';
     exit;
 }
 

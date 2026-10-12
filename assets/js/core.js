@@ -1,4 +1,4 @@
-/* Gamify — shared helpers (no framework, no build step). */
+/* VCL Gamify — shared helpers (no framework, no build step). */
 (function () {
   'use strict';
 

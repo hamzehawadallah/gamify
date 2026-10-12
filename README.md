@@ -1,4 +1,4 @@
-# Gamify: live voting activities for your training sessions
+# VCL Gamify: live voting activities for your training sessions
 
 Participants scan a QR code, type their name once, and vote from their phones.
 You watch the results update live on the big screen, including inside PowerPoint.
@@ -8,9 +8,9 @@ You watch the results update live on the big screen, including inside PowerPoint
 - **Activities with several questions.** One QR code per activity, holding one or more questions, like a toolbox voting wall with three sections. Each question has its own title, description and color.
 - **Pictures on options.** Every question can be single or multiple choice (with an optional limit), with a picture on any option.
 - **Instant results.** New votes reach the presenter screen in well under a second.
-- **Present anywhere.** The presenter view goes straight onto your slides with Gamify's own free PowerPoint add-in. It scales to any size, in light or dark.
+- **Present anywhere.** The presenter view goes straight onto your slides with VCL Gamify's own free PowerPoint add-in. It scales to any size, in light or dark.
 - **You stay in control.** Open or close voting, hide results until the reveal, clear votes, see who voted for what, and export to CSV (Excel-friendly, Arabic included).
-- **Designed to feel native.** Calm surfaces, crisp type, smooth motion, and automatic dark mode. Arabic and other right-to-left text works everywhere.
+- **Clean and light.** White surfaces, crisp type and the VCL colors, with an optional dark theme for the presenter screen. Arabic and other right-to-left text works everywhere.
 
 It is plain PHP + MySQL with no build step, so it runs on ordinary shared hosting such as Hostinger.
 
@@ -81,8 +81,8 @@ Participants scan once, answer each question in turn ("1 of 3", "2 of 3" …) an
 
 ## Show live results in PowerPoint (free add-in)
 
-Gamify comes with its **own PowerPoint add-in**, so you don't need a paid add-in from the store.
-The add-in is a small file your site generates. It points PowerPoint at your own Gamify website.
+VCL Gamify comes with its **own PowerPoint add-in**, so you don't need a paid add-in from the store.
+The add-in is a small file your site generates. It points PowerPoint at your own VCL Gamify website.
 
 **1. Download it.** Open any activity in admin → **Present** → **Add to PowerPoint** → **Download the PowerPoint add-in**.
 The file is also at `https://yourdomain.com/powerpoint/manifest.xml`.
@@ -91,12 +91,14 @@ The file is also at `https://yourdomain.com/powerpoint/manifest.xml`.
 
 | Where | How |
 |---|---|
-| **PowerPoint for Windows** | Put the file in a folder and share it (folder → Properties → Sharing). In PowerPoint: **File → Options → Trust Center → Trust Center Settings → Trusted Add-in Catalogs**, add the folder's network path (e.g. `\\YOUR-PC\addins`), tick **Show in Menu** and restart PowerPoint. Then **Home → Add-ins → More Add-ins → Shared Folder** → **Gamify Live Results**. |
+| **PowerPoint for Windows** | Put the file in a folder and share it (folder → Properties → Sharing). In PowerPoint: **File → Options → Trust Center → Trust Center Settings → Trusted Add-in Catalogs**, add the folder's network path (e.g. `\\YOUR-PC\addins`), tick **Show in Menu** and restart PowerPoint. Then **Home → Add-ins → More Add-ins → Shared Folder** → **VCL Gamify Live Results**. |
 | **PowerPoint for Mac** | Copy the file into `~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef` (create the `wef` folder if it doesn't exist) and restart PowerPoint. It appears under **Home → Add-ins**. |
 | **PowerPoint on the web** | **Home → Add-ins → More Add-ins → My Add-ins → Upload My Add-in** → choose the file. |
 | **Your whole company** | A Microsoft 365 admin uploads the file once in the **Microsoft 365 admin center → Settings → Integrated apps → Upload custom apps**. It then shows up for everyone you assign, in PowerPoint for Windows, Mac and the web. It can take a few hours to appear. |
 
-**3. Use it on a slide.** **Home → Add-ins → Gamify Live Results**. Paste the activity's **presenter link** (copy it from the activity page, after picking Light or Dark) and click **Show live results**. Resize the box to fill the space you want.
+Installed the add-in before the rename (as "Gamify Live Results")? Download the file again and upload it over the old one. In the Microsoft 365 admin center, open the app under **Integrated apps** and choose **Update**. Version 1.1 shows the VCL Gamify name and logo.
+
+**3. Use it on a slide.** **Home → Add-ins → VCL Gamify Live Results**. Paste the activity's **presenter link** (copy it from the activity page, after picking Light or Dark) and click **Show live results**. Resize the box to fill the space you want.
 The slide remembers the link, and results update live during the slideshow. To switch activities, hover over the box in edit mode and click **Change link**.
 
 Notes:
@@ -115,7 +117,7 @@ During a session you control everything from the activity's admin page, e.g. on 
 
 ## How "instant" works on shared hosting
 
-Shared hosting doesn't allow WebSockets, so Gamify uses **long-polling**:
+Shared hosting doesn't allow WebSockets, so VCL Gamify uses **long-polling**:
 
 - The presenter screen asks the server "anything new since version 42?". The server holds the request (up to 20 seconds) and checks a single indexed number 4× per second.
 - The moment a vote lands, the activity's version goes up and the waiting request answers immediately. The screen animates the new numbers and asks again.
@@ -138,7 +140,7 @@ Database changes in new versions are applied automatically on the first request,
 
 | Key | What it does |
 |---|---|
-| `app_name` | Name shown in the header and browser tab. |
+| `app_name` | Name shown in the browser tab and the PowerPoint add-in (default `VCL Gamify`). |
 | `db.host`, `db.port`, `db.name`, `db.user`, `db.pass` | Database connection. |
 | `admin.username`, `admin.password` | Your sign-in. The password may be plain text or a `password_hash()` value (the wizard stores a hash). Changing it signs out every session. |
 | `secret` | Random string used to sign login cookies. |
@@ -182,9 +184,10 @@ app/
   handlers/            Page and API handlers (public, presenter, admin, setup)
   views/               HTML templates
 assets/
-  css/app.css          Design system (tokens, light/dark, components)
+  css/app.css          Design system (tokens, components, optional dark presenter theme)
   js/                  core (helpers, live updates, QR), results, poll, participant,
                        present, admin, activity, editor, home
+  img/                 VCL Gamify logo and icons
   vendor/qrcode.js     QR generator (MIT, Kazuhiko Arase)
 uploads/               Uploaded option images
 storage/               Logs and internal markers (not web-accessible)

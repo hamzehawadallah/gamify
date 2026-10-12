@@ -43,8 +43,8 @@
       ? h('span.pill.pill-green', null, h('span.dot'), 'Voting open')
       : h('span.pill', null, GM.icon('lock'), 'Voting closed'));
     if (a.results_hidden) metaEl.appendChild(h('span.pill.pill-orange', null, GM.icon('eye-off'), 'Results hidden'));
-    metaEl.appendChild(h('span.pill', null, GM.icon('qr'), 'Code ' + GM.fmtCode(p.join.code)));
-    metaEl.appendChild(h('span.pill', null, GM.icon('list'), GM.plural(a.questions.length, 'question', 'questions')));
+    metaEl.appendChild(h('span.pill', null, 'Code ' + GM.fmtCode(p.join.code)));
+    metaEl.appendChild(h('span.pill', null, GM.plural(a.questions.length, 'question', 'questions')));
 
     statusSeg.set(a.status);
     hiddenSwitch.checked = !!a.results_hidden;
@@ -66,7 +66,7 @@
       a.questions.forEach(function (q, i) {
         var sub = h('span.card-sub');
         var host = h('div');
-        qresultsEl.appendChild(h('section.card.results-card', { 'data-color': q.color || 'blue' },
+        qresultsEl.appendChild(h('section.card.results-card', { 'data-color': q.color || 'red' },
           h('div.qresult-head', null,
             h('span.qcard-badge', { text: String(i + 1) }),
             h('h3.card-title', { dir: 'auto', text: qTitle(a, q, i) }),
@@ -109,7 +109,7 @@
         if (!ids.length) return;
         var text = ids.map(function (oid) { return labels[oid] || '—'; }).join(', ');
         plain.push((multi ? qTitle(a, q, i) + ': ' : '') + text);
-        answerEl.appendChild(multi ? h('span.ans', { 'data-color': q.color || 'blue', text: text }) : document.createTextNode(text));
+        answerEl.appendChild(multi ? h('span.ans', { 'data-color': q.color || 'red', text: text }) : document.createTextNode(text));
       });
       answerEl.title = plain.join('\n');
       respList.appendChild(h('div.resp-row' + (seen && !seen[key] ? '.is-new' : ''), null,

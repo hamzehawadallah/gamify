@@ -1,6 +1,6 @@
 <nav class="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="<?= e(url('admin')) ?>"><?= brand_mark() ?><span><?= e(app_name()) ?></span></a>
+    <a class="brand" href="<?= e(url('admin')) ?>"><?= brand_logo() ?></a>
     <div class="nav-actions">
       <?php if (empty($hideNewButton)): ?>
         <a class="btn btn-primary btn-sm" href="<?= e(url('admin/new')) ?>"><?= icon('plus') ?><span class="label">New activity</span></a>

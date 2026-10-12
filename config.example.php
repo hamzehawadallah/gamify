@@ -1,6 +1,6 @@
 <?php
 /*
- * Gamify configuration
+ * VCL Gamify configuration
  * --------------------
  * The easiest way: upload the app and open your site in a browser — the setup
  * wizard asks for these values and writes config.php for you.
@@ -10,7 +10,7 @@
  */
 return [
     // Shown in the browser tab and the header.
-    'app_name' => 'Gamify',
+    'app_name' => 'VCL Gamify',
 
     'db' => [
         'host' => 'localhost',          // Hostinger shared hosting: keep "localhost"

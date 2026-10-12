@@ -19,19 +19,20 @@
       <span>Hide results on screen</span>
       <input class="switch" type="checkbox" id="hidden-switch">
     </label>
-    <span class="spacer"></span>
-    <a class="btn btn-sm" href="<?= e(url('admin/activity/' . $data['id'] . '/edit')) ?>"><?= icon('edit') ?>Edit</a>
-    <div class="menu-wrap">
-      <button class="btn btn-sm btn-icon" type="button" id="more-btn" aria-haspopup="menu" aria-expanded="false" aria-label="More actions"><?= icon('more') ?></button>
-      <div class="menu" id="more-menu" role="menu" hidden>
-        <a role="menuitem" href="<?= e(url('admin/activity/' . $data['id'] . '/export.csv')) ?>"><?= icon('download') ?>Export results (CSV)</a>
-        <button role="menuitem" type="button" data-action="duplicate"><?= icon('copy') ?>Duplicate</button>
-        <hr>
-        <button role="menuitem" type="button" data-action="reset"><?= icon('reset') ?>Clear all votes</button>
-        <button role="menuitem" type="button" data-action="delete" class="danger"><?= icon('trash') ?>Delete activity</button>
+    <div class="act-actions">
+      <a class="btn btn-sm" href="<?= e(url('admin/activity/' . $data['id'] . '/edit')) ?>"><?= icon('edit') ?>Edit</a>
+      <div class="menu-wrap">
+        <button class="btn btn-sm btn-icon" type="button" id="more-btn" aria-haspopup="menu" aria-expanded="false" aria-label="More actions"><?= icon('more') ?></button>
+        <div class="menu" id="more-menu" role="menu" hidden>
+          <a role="menuitem" href="<?= e(url('admin/activity/' . $data['id'] . '/export.csv')) ?>"><?= icon('download') ?>Export results (CSV)</a>
+          <button role="menuitem" type="button" data-action="duplicate"><?= icon('copy') ?>Duplicate</button>
+          <hr>
+          <button role="menuitem" type="button" data-action="reset"><?= icon('reset') ?>Clear all votes</button>
+          <button role="menuitem" type="button" data-action="delete" class="danger"><?= icon('trash') ?>Delete activity</button>
+        </div>
       </div>
+      <a class="btn btn-primary btn-sm" id="present-btn" href="<?= e($data['present_url']) ?>" target="_blank" rel="noopener"><?= icon('present') ?>Present</a>
     </div>
-    <a class="btn btn-primary btn-sm" id="present-btn" href="<?= e($data['present_url']) ?>" target="_blank" rel="noopener"><?= icon('present') ?>Present</a>
   </div>
 
   <div class="act-grid">

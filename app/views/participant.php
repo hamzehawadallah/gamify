@@ -1,6 +1,6 @@
 <div class="p-shell" id="app">
   <header class="p-top">
-    <a class="brand" href="<?= e(url('/')) ?>"><?= brand_mark() ?><span><?= e(app_name()) ?></span></a>
+    <a class="brand" href="<?= e(url('/')) ?>"><?= brand_logo() ?></a>
   </header>
   <main class="p-main">
     <div class="p-state">

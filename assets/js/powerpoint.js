@@ -51,7 +51,7 @@
       e.preventDefault();
       var url = normalize(input.value);
       if (url === 'other') {
-        error.textContent = 'This link is from a different website. Use a presenter link from this ' + (GM.config.appName || 'Gamify') + ' site.';
+        error.textContent = 'This link is from a different website. Use a presenter link from this ' + (GM.config.appName || 'VCL Gamify') + ' site.';
       } else if (!url) {
         error.textContent = 'That doesn’t look like a presenter link. Copy it from the activity page: Present → Copy.';
       } else {
@@ -60,7 +60,7 @@
       }
     });
     root.appendChild(h('div.pp-setup', null,
-      h('img.pp-mark', { src: GM.url('assets/img/addin-80.png'), alt: '' }),
+      h('img.pp-mark', { src: GM.url('assets/img/logo.svg'), alt: GM.config.appName || 'VCL Gamify' }),
       h('h1', { text: 'Live results on this slide' }),
       h('p', { text: 'Paste the presenter link from your activity page (Present → Copy). This slide remembers it.' }),
       form,

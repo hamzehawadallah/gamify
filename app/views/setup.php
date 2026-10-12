@@ -1,9 +1,9 @@
 <?php $bodyClass = 'center-page'; ?>
 <main class="setup">
   <header class="setup-head">
-    <?= brand_mark('join-mark') ?>
-    <h1>Welcome to <?= e($v['app_name'] ?: 'Gamify') ?></h1>
-    <p>Two quick steps: connect your database, then choose your admin login.</p>
+    <?= brand_logo('join-mark') ?>
+    <h1>Set up <?= e($v['app_name'] ?: 'VCL Gamify') ?></h1>
+    <p>Connect your database, then choose your admin login.</p>
   </header>
 
   <?php if ($manualConfig): ?>

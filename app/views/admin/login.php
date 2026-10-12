@@ -1,8 +1,7 @@
 <?php $bodyClass = 'center-page'; ?>
 <main class="auth">
-  <?= brand_mark('join-mark') ?>
-  <h1>Sign in to <?= e(app_name()) ?></h1>
-  <p class="sub">Create activities and present live results.</p>
+  <?= brand_logo('join-mark') ?>
+  <h1>Sign in</h1>
   <form method="post" action="<?= e(url('admin/login')) ?>">
     <?php if ($error): ?>
       <div class="alert" role="alert"><?= icon('alert') ?><span><?= e($error) ?></span></div>

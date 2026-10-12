@@ -7,7 +7,7 @@
   var h = GM.h;
   var boot = GM.data() || {};
   var existing = boot.editor;
-  var COLORS = boot.colors || ['blue', 'red', 'yellow', 'green', 'purple', 'teal', 'orange', 'indigo'];
+  var COLORS = boot.colors || ['red', 'blue', 'yellow', 'green', 'purple', 'teal', 'orange', 'charcoal'];
   var MAX_QUESTIONS = boot.maxQuestions || 12;
   var MAX_OPTIONS = 20;
 
@@ -497,7 +497,7 @@
     submit.disabled = !sel.length;
 
     var view = h('section.p-view', { 'data-color': q.settings.color });
-    if (multi || qTitle !== activityTitle) view.appendChild(h('div.p-activity', null, GM.icon('poll'), h('span', { text: activityTitle })));
+    if (multi || qTitle !== activityTitle) view.appendChild(h('div.p-activity', null, h('span', { text: activityTitle })));
     if (multi && qi === 0 && state.description.trim()) view.appendChild(h('p.p-activity-desc', { dir: 'auto', text: state.description.trim() }));
     if (multi) {
       var bars = h('div.p-progress-bars');
@@ -517,7 +517,7 @@
     var scrollTop = scroll ? scroll.scrollTop : 0;
     var shell = h('div.p-shell', { 'aria-hidden': 'true' },
       h('header.p-top', null,
-        h('span.brand', null, h('img.brand-mark', { src: document.querySelector('.nav .brand-mark').src, alt: '' }), GM.config.appName || ''),
+        h('span.brand', null, h('img.brand-logo', { src: document.querySelector('.nav .brand-logo').src, alt: '' })),
         h('span.me-chip', null, GM.avatar('Alex Morgan', 3), h('span', { text: 'Alex' }))),
       h('main.p-main', null, view),
       h('div.p-actions', null, h('div.p-actions-inner', null, submit)));

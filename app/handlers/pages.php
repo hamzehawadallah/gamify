@@ -94,7 +94,7 @@ function page_powerpoint_manifest(): void
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:type="ContentApp">
   <Id>{$id}</Id>
-  <Version>1.0.0.0</Version>
+  <Version>1.1.0.0</Version>
   <ProviderName>{$x($name)}</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="{$x($name . ' Live Results')}"/>

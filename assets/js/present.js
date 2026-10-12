@@ -107,13 +107,13 @@
     var kicker = title !== a.title ? a.title : '';
     kickerEl.hidden = !kicker;
     kickerEl.textContent = kicker;
-    kickerEl.setAttribute('data-color', q.color || 'blue');
+    kickerEl.setAttribute('data-color', q.color || 'red');
     titleEl.textContent = title;
     titleEl.classList.toggle('is-long', title.length > 90);
     var desc = q.description || (a.questions.length === 1 ? a.description : '');
     descEl.textContent = desc;
     descEl.hidden = !desc;
-    body.setAttribute('data-color', q.color || 'blue');
+    body.setAttribute('data-color', q.color || 'red');
 
     var r = resultsFor(p, i);
     if (a.results_hidden) {
@@ -161,7 +161,7 @@
       columns = { key: key, results: {} };
       a.questions.forEach(function (q, i) {
         var bodyEl = h('div.wall-body');
-        var col = h('article.wall-col', { 'data-color': q.color || 'blue', style: { '--i': i } },
+        var col = h('article.wall-col', { 'data-color': q.color || 'red', style: { '--i': i } },
           h('header.wall-head', null,
             h('div.wall-title', { dir: 'auto', text: qTitle(a, q, i) }),
             q.description ? h('div.wall-desc', { dir: 'auto', text: q.description }) : null),

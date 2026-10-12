@@ -1,6 +1,6 @@
 <main class="join">
   <div class="join-inner">
-    <?= brand_mark('join-mark') ?>
+    <?= brand_logo('join-mark') ?>
     <h1>Join an activity</h1>
     <p class="join-sub">Enter the 6-digit code you see on screen.</p>
     <form id="join-form" novalidate autocomplete="off">

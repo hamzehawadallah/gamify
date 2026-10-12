@@ -9,8 +9,7 @@ $themeAttr = (isset($theme) && in_array($theme, ['light', 'dark'], true)) ? ' da
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title><?= e($pageTitle) ?></title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f6f7">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="<?= e(app_name()) ?>">
 <meta name="format-detection" content="telephone=no">

@@ -10,7 +10,8 @@ const GM_ACTIVITY_TYPES = ['poll'];
 const GM_MAX_OPTIONS = 20;
 const GM_MAX_QUESTIONS = 12;
 const GM_LIVE_WAIT_SECONDS = 15;
-const GM_QUESTION_COLORS = ['blue', 'red', 'yellow', 'green', 'purple', 'teal', 'orange', 'indigo'];
+// Red and charcoal are the VCL brand colors; the first question gets red.
+const GM_QUESTION_COLORS = ['red', 'blue', 'yellow', 'green', 'purple', 'teal', 'orange', 'charcoal'];
 
 /* ---------- Settings ---------- */
 
@@ -44,6 +45,9 @@ function question_settings(array $question, int $position = 0): array
 {
     $saved = json_decode((string) ($question['settings'] ?? ''), true);
     $out = array_merge(question_default_settings($position), is_array($saved) ? $saved : []);
+    if ($out['color'] === 'indigo') {
+        $out['color'] = 'charcoal'; // the color charcoal replaced
+    }
     if (!in_array($out['color'], GM_QUESTION_COLORS, true)) {
         $out['color'] = question_default_settings($position)['color'];
     }

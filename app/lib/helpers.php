@@ -54,8 +54,9 @@ function config(string $key, $default = null)
 
 function app_name(): string
 {
-    $name = trim((string) config('app_name', 'Gamify'));
-    return $name !== '' ? $name : 'Gamify';
+    $name = trim((string) config('app_name', ''));
+    // Sites set up before the rename still say "Gamify" in config.php.
+    return ($name === '' || $name === 'Gamify') ? 'VCL Gamify' : $name;
 }
 
 function e($value): string
@@ -339,7 +340,10 @@ function icon(string $name, string $class = ''): string
     return '<svg' . $cls . ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $paths . '</svg>';
 }
 
-function brand_mark(string $class = 'brand-mark'): string
+/** The VCL Gamify logotype; $onDark picks the light-on-dark version. */
+function brand_logo(string $class = '', bool $onDark = false): string
 {
-    return '<img class="' . e($class) . '" src="' . e(asset('img/icon.svg')) . '" alt="" width="28" height="28">';
+    $cls = trim('brand-logo ' . $class);
+    $src = asset($onDark ? 'img/logo-dark.svg' : 'img/logo.svg');
+    return '<img class="' . e($cls) . '" src="' . e($src) . '" alt="VCL Gamify" width="70" height="32">';
 }

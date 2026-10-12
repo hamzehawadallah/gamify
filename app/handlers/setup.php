@@ -14,7 +14,7 @@ function setup_page(): void
     }
 
     $v = [
-        'app_name' => 'Gamify',
+        'app_name' => 'VCL Gamify',
         'db_host' => 'localhost',
         'db_port' => '3306',
         'db_name' => '',
@@ -59,7 +59,7 @@ function setup_page(): void
 
         if (!$errors) {
             $config = [
-                'app_name' => $v['app_name'] !== '' ? $v['app_name'] : 'Gamify',
+                'app_name' => $v['app_name'] !== '' ? $v['app_name'] : 'VCL Gamify',
                 'db' => $db,
                 'admin' => [
                     'username' => $v['admin_user'],
@@ -69,7 +69,7 @@ function setup_page(): void
                 'base_url' => '',
                 'debug' => false,
             ];
-            $php = "<?php\n// Created by the Gamify setup wizard on " . gmdate('Y-m-d H:i') . " UTC.\n"
+            $php = "<?php\n// Created by the VCL Gamify setup wizard on " . gmdate('Y-m-d H:i') . " UTC.\n"
                 . "// You can edit these values at any time. See config.example.php for notes.\n"
                 . 'return ' . var_export($config, true) . ";\n";
 
@@ -84,7 +84,7 @@ function setup_page(): void
     }
 
     render('setup', [
-        'title' => 'Set up ' . ($v['app_name'] ?: 'Gamify'),
+        'title' => 'Set up ' . ($v['app_name'] ?: 'VCL Gamify'),
         'bodyClass' => 'page-setup',
         'v' => $v,
         'errors' => $errors,

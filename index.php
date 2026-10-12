@@ -1,6 +1,6 @@
 <?php
 /**
- * Gamify — front controller. Every page and API request comes through here.
+ * VCL Gamify — front controller. Every page and API request comes through here.
  */
 declare(strict_types=1);
 

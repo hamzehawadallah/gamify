@@ -116,7 +116,7 @@
         var isTop = showTop && c === max;
         row.el.classList.toggle('is-top', isTop);
         if (isTop && !row.badge) {
-          row.badge = h('span.r-top', null, GM.icon('trophy'), 'Top');
+          row.badge = h('span.r-top', { text: 'Top' });
           row.value.appendChild(row.badge);
         } else if (!isTop && row.badge) {
           row.badge.remove();
