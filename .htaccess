@@ -1,0 +1,32 @@
+# Gamify — Apache / LiteSpeed configuration (works on Hostinger shared hosting)
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Force HTTPS. PowerPoint's Web Viewer only embeds https:// pages.
+    # (Hostinger: you can also switch on "Force HTTPS" in hPanel instead.)
+    # RewriteCond %{HTTPS} !=on
+    # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Never serve hidden files (.git, .env, …) or private folders.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+    RewriteRule ^(app|storage)(/|$) - [F,L]
+    RewriteRule ^(config|config\.example)\.php$ - [F,L]
+    RewriteRule ^README\.md$ - [F,L]
+
+    # Every request that isn't a real file is handled by index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(?i:css|js|svg|png|jpe?g|webp|gif|ico|woff2?)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain application/javascript application/json image/svg+xml
+</IfModule>

@@ -1,0 +1,17 @@
+# Local configuration (created by the setup wizard or by copying config.example.php)
+/config.php
+
+# Runtime data
+/storage/*
+!/storage/.htaccess
+!/storage/index.html
+/uploads/*
+!/uploads/.htaccess
+!/uploads/index.html
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+node_modules/
