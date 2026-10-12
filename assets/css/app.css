@@ -1909,7 +1909,7 @@ button {
 }
 
 /* ==========================================================================
-   Presenter (also embedded in PowerPoint through the Web Viewer add-in)
+   Presenter (also embedded in PowerPoint through the Gamify add-in)
    ========================================================================== */
 
 .page-present {
@@ -4192,4 +4192,137 @@ details.disclosure[open] .steps {
 .img-slot img,
 .r-item .r-thumb img {
   padding: 3px;
+}
+
+/* ==========================================================================
+   PowerPoint add-in (shown inside a slide)
+   ========================================================================== */
+
+.page-pp {
+  height: 100vh;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.pp {
+  position: fixed;
+  inset: 0;
+}
+
+.pp-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--label-3);
+}
+
+.pp-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.pp-setup {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  height: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.pp-mark {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+}
+
+.pp-setup h1 {
+  font-size: clamp(20px, 4.2vw, 30px);
+}
+
+.pp-setup p {
+  max-width: 460px;
+  font-size: 15px;
+  color: var(--label-2);
+}
+
+.pp-form {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.pp-form .input {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+}
+
+.pp-form .btn {
+  height: 46px;
+}
+
+.pp-change {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--glass);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+}
+
+.pp:hover .pp-change,
+.pp-change:focus-visible {
+  opacity: 1;
+}
+
+.is-slideshow .pp-change {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .pp-form {
+    flex-direction: column;
+  }
+}
+
+.pp-help {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  animation: rise 0.4s var(--ease-out) both;
+}
+
+.pp-help .btn {
+  justify-self: start;
+}
+
+.pp-help-title {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--label);
+}
+
+details.disclosure[open] .pp-help .steps {
+  margin-top: 0;
+}
+
+.pp-help {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.steps li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

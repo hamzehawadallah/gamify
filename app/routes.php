@@ -22,6 +22,10 @@ function gm_routes(): array
         ['GET', "#^/present/$code$#", 'page_present'],
         ['GET', "#^/api/present/$code$#", 'api_present'],
 
+        // Free PowerPoint add-in: shows a presenter link live on a slide
+        ['GET', '#^/powerpoint$#', 'page_powerpoint'],
+        ['GET', '#^/powerpoint/manifest\.xml$#', 'page_powerpoint_manifest'],
+
         // Admin
         ['GET', '#^/admin$#', 'admin_dashboard'],
         ['GET', '#^/admin/login$#', 'admin_login_page'],

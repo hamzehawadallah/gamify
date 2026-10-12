@@ -8,7 +8,7 @@ You watch the results update live on the big screen, including inside PowerPoint
 - **Activities with several questions.** One QR code per activity, holding one or more questions, like a toolbox voting wall with three sections. Each question has its own title, description and color.
 - **Pictures on options.** Every question can be single or multiple choice (with an optional limit), with a picture on any option.
 - **Instant results.** New votes reach the presenter screen in well under a second.
-- **Present anywhere.** The presenter view embeds in PowerPoint (Web Viewer add-in) and scales to any size, in light or dark.
+- **Present anywhere.** The presenter view goes straight onto your slides with Gamify's own free PowerPoint add-in. It scales to any size, in light or dark.
 - **You stay in control.** Open or close voting, hide results until the reveal, clear votes, see who voted for what, and export to CSV (Excel-friendly, Arabic included).
 - **Designed to feel native.** Calm surfaces, crisp type, smooth motion, and automatic dark mode. Arabic and other right-to-left text works everywhere.
 
@@ -79,21 +79,34 @@ Participants scan once, answer each question in turn ("1 of 3", "2 of 3" …) an
 
 ---
 
-## Show live results in PowerPoint
+## Show live results in PowerPoint (free add-in)
 
-1. In PowerPoint, go to the **Home** tab and click **Add-ins** at the far right of the ribbon. On older versions it's under **Insert → Get Add-ins**; **File → Get Add-ins** also works.
-2. Search for **Web Viewer** and add it.
-3. Go to the slide, open **Home → Add-ins** again and click **Web Viewer** to place it. Paste the activity's **presenter link**: copy it from the activity page in admin, after picking Light or Dark to match your deck. If the add-in already shows `https://` in front of the box, paste the link without its own `https://`.
-4. Start the slideshow. Votes appear live with no refresh.
+Gamify comes with its **own PowerPoint add-in**, so you don't need a paid add-in from the store.
+The add-in is a small file your site generates. It points PowerPoint at your own Gamify website.
 
-**No Add-ins button, or it's greyed out?** Your company has probably switched off Office add-ins. Ask your IT team to allow **Web Viewer**, or use one of these instead:
-- Put a link on the slide (**Insert → Link**) to the presenter link. Click it during the slideshow to open the live results in your browser, then switch back with Alt+Tab.
-- Open the presenter link in a browser window on the projector and press **F** for full screen.
+**1. Download it.** Open any activity in admin → **Present** → **Add to PowerPoint** → **Download the PowerPoint add-in**.
+The file is also at `https://yourdomain.com/powerpoint/manifest.xml`.
+
+**2. Install it once.** Pick the method that fits:
+
+| Where | How |
+|---|---|
+| **PowerPoint for Windows** | Put the file in a folder and share it (folder → Properties → Sharing). In PowerPoint: **File → Options → Trust Center → Trust Center Settings → Trusted Add-in Catalogs**, add the folder's network path (e.g. `\\YOUR-PC\addins`), tick **Show in Menu** and restart PowerPoint. Then **Home → Add-ins → More Add-ins → Shared Folder** → **Gamify Live Results**. |
+| **PowerPoint for Mac** | Copy the file into `~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef` (create the `wef` folder if it doesn't exist) and restart PowerPoint. It appears under **Home → Add-ins**. |
+| **PowerPoint on the web** | **Home → Add-ins → More Add-ins → My Add-ins → Upload My Add-in** → choose the file. |
+| **Your whole company** | A Microsoft 365 admin uploads the file once in the **Microsoft 365 admin center → Settings → Integrated apps → Upload custom apps**. It then shows up for everyone you assign, in PowerPoint for Windows, Mac and the web. It can take a few hours to appear. |
+
+**3. Use it on a slide.** **Home → Add-ins → Gamify Live Results**. Paste the activity's **presenter link** (copy it from the activity page, after picking Light or Dark) and click **Show live results**. Resize the box to fill the space you want.
+The slide remembers the link, and results update live during the slideshow. To switch activities, hover over the box in edit mode and click **Change link**.
+
+Notes:
+- Your site must use **https://**. Turn on the free SSL certificate in hPanel → Security → SSL.
+- If your company blocks add-ins altogether, put the presenter link on the slide with **Insert → Link** (for example on a "See results" button) and click it during the slideshow. The live results open in your browser; Alt+Tab takes you back to the slides.
+- You can also open the presenter link in a browser window on the projector (press **F** or double-click for full screen), or share that window in Teams or Zoom.
 
 The presenter link contains a private key, so only people you give it to can open the results screen.
-The page scales to any slide size and can show the QR code next to the results. You can turn that off per activity.
+The page scales to any size and can show the QR code next to the results. You can turn that off per activity.
 With several questions, the presenter shows them **side by side** in their colors, like a voting wall. To give a question its own slide, pick it under **Show** on the activity page; the link then ends in `&q=2`, for example.
-You can also open the link in a browser window on the projector (press **F** or double-click for full screen), or share that window in Teams or Zoom.
 
 During a session you control everything from the activity's admin page, e.g. on your laptop or phone.
 **Close voting** or **Hide results** there, and the slide updates instantly.

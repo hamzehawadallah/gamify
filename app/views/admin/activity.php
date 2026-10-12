@@ -84,14 +84,23 @@
         </label>
         <div class="copy-field"><span id="present-url"></span><button class="btn btn-sm btn-plain" type="button" data-copy="present"><?= icon('copy') ?>Copy</button></div>
         <details class="disclosure">
-          <summary>Add to PowerPoint <?= icon('chevron-right') ?></summary>
-          <ol class="steps">
-            <li><span>In PowerPoint, click <b>Home → Add-ins</b> (far right of the ribbon), search for <b>Web Viewer</b> and add it.</span></li>
-            <li><span>On your slide, open <b>Home → Add-ins → Web Viewer</b> and paste the presenter link above. If the box already starts with https://, leave that part out.</span></li>
-            <li><span>Start the slideshow. Votes appear instantly — no refresh needed.</span></li>
-            <li><span>The link must start with <b>https://</b>. Turn on SSL for your domain in hPanel if it doesn’t.</span></li>
-            <li><span>No Add-ins button? Your company may block add-ins. Put the presenter link on the slide with <b>Insert → Link</b> and click it during the show, or open it in a browser and press <b>F</b> for full screen.</span></li>
-          </ol>
+          <summary>Add to PowerPoint (free add-in) <?= icon('chevron-right') ?></summary>
+          <div class="pp-help">
+            <a class="btn btn-sm btn-tinted" href="<?= e(url('powerpoint/manifest.xml')) ?>" download><?= icon('download') ?>Download the PowerPoint add-in</a>
+            <p class="pp-help-title">Install it once — pick the one that fits:</p>
+            <ol class="steps">
+              <li><span><b>Windows:</b> put the file in a shared folder, add that folder in <b>File → Options → Trust Center → Trust Center Settings → Trusted Add-in Catalogs</b> (tick <b>Show in Menu</b>), restart PowerPoint, then <b>Home → Add-ins → More Add-ins → Shared Folder</b>.</span></li>
+              <li><span><b>Mac:</b> copy the file into <b>~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef</b> (create the folder if needed) and restart PowerPoint.</span></li>
+              <li><span><b>PowerPoint on the web:</b> <b>Home → Add-ins → More Add-ins → My Add-ins → Upload My Add-in</b>.</span></li>
+              <li><span><b>Whole company:</b> a Microsoft 365 admin uploads the file in <b>admin center → Settings → Integrated apps → Upload custom apps</b>. It then appears for everyone, desktop included.</span></li>
+            </ol>
+            <p class="pp-help-title">Then on any slide:</p>
+            <ol class="steps">
+              <li><span><b>Home → Add-ins → <?= e(app_name()) ?> Live Results</b>, paste the presenter link above and resize the box.</span></li>
+              <li><span>Start the slideshow. Votes appear live. The slide remembers the link.</span></li>
+            </ol>
+            <p class="field-hint">Your site needs <b>https://</b> (hPanel → Security → SSL). No add-ins allowed at work? Link the presenter link to a button with <b>Insert → Link</b>, or open it in a browser and press <b>F</b>.</p>
+          </div>
         </details>
       </section>
     </div>

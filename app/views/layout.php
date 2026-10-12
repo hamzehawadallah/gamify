@@ -20,6 +20,9 @@ $themeAttr = (isset($theme) && in_array($theme, ['light', 'dark'], true)) ? ' da
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
+<?php foreach (($headScripts ?? []) as $headScript): ?>
+<script src="<?= e($headScript) ?>"></script>
+<?php endforeach; ?>
 <script>
 window.GM_CONFIG = <?= json_for_html(['base' => base_path(), 'appName' => app_name(), 'csrf' => $csrf ?? null]) ?>;
 window.GM_ICONS = <?= json_for_html(icon_paths()) ?>;

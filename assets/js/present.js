@@ -1,4 +1,4 @@
-/* Presenter screen — full-bleed, scales to any size (projector, PowerPoint Web Viewer, Teams).
+/* Presenter screen — full-bleed, scales to any size (projector, the PowerPoint add-in, Teams).
    Shows every question side by side (a "wall"), or one question with ?q=N. */
 (function () {
   'use strict';

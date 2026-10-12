@@ -68,8 +68,20 @@ function base_path(): string
 {
     static $base = null;
     if ($base === null) {
-        $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
-        $base = ($dir === '/' || $dir === '.') ? '' : rtrim($dir, '/');
+        $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        if (substr($script, -10) === '/index.php') {
+            $dir = dirname($script);
+        } else {
+            // Some servers (e.g. PHP's built-in one, for URLs ending in .xml or .csv)
+            // report the requested path instead: use the app folder's place in the web root.
+            $docRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? '')) ?: '';
+            $appRoot = realpath(GM_ROOT) ?: GM_ROOT;
+            $dir = ($docRoot !== '' && strpos($appRoot . '/', rtrim($docRoot, '/') . '/') === 0)
+                ? substr($appRoot, strlen(rtrim($docRoot, '/')))
+                : '';
+        }
+        $dir = str_replace('\\', '/', $dir);
+        $base = ($dir === '/' || $dir === '.' || $dir === '') ? '' : rtrim($dir, '/');
     }
     return $base;
 }
@@ -239,7 +251,7 @@ function send_security_headers(bool $allowFraming = false): void
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     if ($allowFraming) {
-        // The presenter view is meant to be embedded (PowerPoint Web Viewer, Teams, Keynote …)
+        // The presenter view is meant to be embedded (the PowerPoint add-in, Teams, Keynote …)
         header_remove('X-Frame-Options');
         header('Content-Security-Policy: frame-ancestors *');
     } else {
