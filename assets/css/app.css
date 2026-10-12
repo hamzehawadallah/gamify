@@ -1412,7 +1412,7 @@ button {
 .opt-img img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.6s var(--ease-out);
 }
 
@@ -1606,7 +1606,7 @@ button {
   height: 40px;
   flex: none;
   border-radius: 10px;
-  object-fit: cover;
+  object-fit: contain;
   background: var(--fill-2);
 }
 
@@ -1841,7 +1841,7 @@ button {
 .r-img img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .r-img-empty {
@@ -2401,7 +2401,10 @@ button {
 .a-card-cover {
   height: 104px;
   margin: -20px -22px 16px;
-  background: var(--fill-2) center / cover no-repeat;
+  padding: 10px;
+  background: #fff center / contain no-repeat;
+  background-origin: content-box;
+  box-shadow: inset 0 -0.5px 0 var(--sep-strong);
 }
 
 .a-card-top {
@@ -2663,7 +2666,7 @@ button {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .img-slot .spinner {
@@ -3923,7 +3926,7 @@ details.disclosure[open] .steps {
 .r-item .r-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .r-item .r-label {
@@ -4172,4 +4175,21 @@ details.disclosure[open] .steps {
 .present-card .row .select {
   flex: 1;
   min-width: 0;
+}
+
+/* Option pictures are always shown whole: fitted inside their frame on a white
+   mat (most slide graphics and diagrams have white backgrounds), never cropped. */
+.opt-img img,
+.r-img img,
+.r-item .r-thumb img,
+.img-slot img,
+.my-pick-item img {
+  object-fit: contain;
+  background: #fff;
+  padding: 5%;
+}
+
+.img-slot img,
+.r-item .r-thumb img {
+  padding: 3px;
 }
