@@ -59,6 +59,8 @@ Open your site. The **setup wizard** appears and asks for:
 
 It creates the tables, saves `config.php` and signs you in. That's it.
 
+> Run the wizard right after deploying. Until setup is finished, whoever opens the site first could complete it. Once `config.php` exists, the wizard is gone for good.
+
 > Prefer to do it by hand? Copy `config.example.php` to `config.php`, fill in the values, and open the site.
 > If the server doesn't let the wizard save `config.php`, it shows you the exact text to paste into a new file instead.
 

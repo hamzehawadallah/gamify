@@ -45,7 +45,7 @@
     statusSeg.set(a.status);
     hiddenSwitch.checked = !!a.results_hidden;
     hiddenBanner.hidden = !a.results_hidden;
-    countEl.textContent = GM.plural(p.results.voters, 'vote', 'votes');
+    countEl.textContent = p.results.voters + ' ' + GM.voterWord(p.results.voters, a.settings.multiple);
 
     results.update(a, p.results);
     renderResponses(p);

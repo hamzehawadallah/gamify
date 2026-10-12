@@ -53,11 +53,23 @@ function gm_run(): void
     $method = $method === 'HEAD' ? 'GET' : $method;
     $path = request_path();
 
-    if (!is_configured() && $path !== '/setup') {
-        if (is_api_request()) {
-            json_error('This site isn’t set up yet.', 503, 'not_configured');
+    if (!is_configured()) {
+        if (config_file_exists()) {
+            // Never reopen the wizard over an existing (but broken) config.php.
+            render_error(500, 'Configuration problem', 'config.php exists but doesn’t contain valid settings. Compare it with config.example.php.');
+            return;
         }
-        redirect('/setup');
+        if ($path !== '/setup') {
+            if (is_api_request()) {
+                json_error('This site isn’t set up yet.', 503, 'not_configured');
+            }
+            redirect('/setup');
+        }
+    }
+
+    // Participant POSTs must come from our own scripts (blocks cross-site form posts).
+    if ($method === 'POST' && strpos($path, '/api/') === 0 && ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'gamify') {
+        json_error('Please use the app to take part.', 400, 'bad_request');
     }
     if (is_configured()) {
         ensure_schema();

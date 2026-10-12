@@ -69,14 +69,16 @@
 
   /* ---------- Storage (never throws) ---------- */
 
+  // Keys are scoped to the install folder, so two installs on one domain don't collide.
+  var storePrefix = 'gm' + (cfg.base || '') + '.';
   GM.store = {
     get: function (k) {
-      try { return window.localStorage.getItem('gm.' + k); } catch (e) { return null; }
+      try { return window.localStorage.getItem(storePrefix + k); } catch (e) { return null; }
     },
     set: function (k, v) {
       try {
-        if (v === null || v === undefined) window.localStorage.removeItem('gm.' + k);
-        else window.localStorage.setItem('gm.' + k, v);
+        if (v === null || v === undefined) window.localStorage.removeItem(storePrefix + k);
+        else window.localStorage.setItem(storePrefix + k, v);
       } catch (e) { /* private mode */ }
     }
   };
@@ -85,7 +87,7 @@
 
   GM.api = function (method, path, body, opts) {
     opts = opts || {};
-    var headers = { Accept: 'application/json' };
+    var headers = { Accept: 'application/json', 'X-Requested-With': 'gamify' };
     if (cfg.csrf) headers['X-CSRF-Token'] = cfg.csrf;
     var pid = GM.store.get('pid');
     if (pid) headers['X-Participant-Token'] = pid;
@@ -258,6 +260,11 @@
 
   GM.plural = function (n, one, many) {
     return n + ' ' + (n === 1 ? one : many);
+  };
+
+  /** Headline count: people who voted. On multiple-choice polls that's "voters", not "votes". */
+  GM.voterWord = function (n, multiple) {
+    return multiple ? (n === 1 ? 'voter' : 'voters') : (n === 1 ? 'vote' : 'votes');
   };
 
   GM.fmtCode = function (code) {

@@ -13,8 +13,10 @@ DirectoryIndex index.php
     # Never serve hidden files (.git, .env, …) or private folders.
     RewriteRule (^|/)\.(?!well-known/) - [F,L]
     RewriteRule ^(app|storage)(/|$) - [F,L]
-    RewriteRule ^(config|config\.example)\.php$ - [F,L]
+    RewriteRule ^config - [F,L]
     RewriteRule ^README\.md$ - [F,L]
+    # Editor backups and dumps (config.php.bak, file~, dump.sql …)
+    RewriteRule (~|\.(bak|old|orig|save|swp|swo|tmp|sql|log|dist))$ - [F,L]
 
     # Every request that isn't a real file is handled by index.php
     RewriteCond %{REQUEST_FILENAME} !-f

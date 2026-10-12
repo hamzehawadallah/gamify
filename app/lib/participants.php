@@ -8,14 +8,16 @@ declare(strict_types=1);
 const GM_PARTICIPANT_COOKIE = 'gm_pid';
 const GM_PARTICIPANT_TTL = 34560000; // 400 days, the longest browsers allow
 
-function participant_token_from_request(): ?string
+/** Well-formed tokens sent with this request: the cookie first, then the localStorage copy. */
+function participant_tokens_from_request(): array
 {
+    $tokens = [];
     foreach ([$_COOKIE[GM_PARTICIPANT_COOKIE] ?? null, $_SERVER['HTTP_X_PARTICIPANT_TOKEN'] ?? null] as $candidate) {
-        if (is_string($candidate) && preg_match('/^[a-f0-9]{40}$/', $candidate)) {
-            return $candidate;
+        if (is_string($candidate) && preg_match('/^[a-f0-9]{40}$/', $candidate) && !in_array($candidate, $tokens, true)) {
+            $tokens[] = $candidate;
         }
     }
-    return null;
+    return $tokens;
 }
 
 function participant_set_cookie(string $token): void
@@ -32,17 +34,16 @@ function participant_current(): ?array
         return $cache;
     }
     $cache = null;
-    $token = participant_token_from_request();
-    if ($token === null) {
-        return null;
-    }
-    $row = q_one('SELECT id, token, name FROM gm_participants WHERE token = ?', [$token]);
-    if ($row) {
-        // Restore the cookie from the localStorage copy if the browser dropped it.
-        if (($_COOKIE[GM_PARTICIPANT_COOKIE] ?? '') !== $token) {
-            participant_set_cookie($token);
+    foreach (participant_tokens_from_request() as $token) {
+        $row = q_one('SELECT id, token, name FROM gm_participants WHERE token = ?', [$token]);
+        if ($row) {
+            // Restore the cookie from the localStorage copy if the browser dropped it.
+            if (($_COOKIE[GM_PARTICIPANT_COOKIE] ?? '') !== $token) {
+                participant_set_cookie($token);
+            }
+            $cache = $row;
+            break;
         }
-        $cache = $row;
     }
     return $cache;
 }

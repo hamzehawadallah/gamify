@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 const GM_ACTIVITY_TYPES = ['poll'];
 const GM_MAX_OPTIONS = 20;
-const GM_LIVE_WAIT_SECONDS = 20;
+const GM_LIVE_WAIT_SECONDS = 15;
 
 function poll_default_settings(): array
 {
@@ -204,7 +204,7 @@ function activity_response_rows(int $activityId, array $options, int $limit = 0)
             if ($limit > 0 && count($rows) >= $limit) {
                 continue;
             }
-            $rows[$pid] = ['participant_id' => $pid, 'name' => $r['name'], 'option_ids' => [], 'at' => $r['created_at'] . 'Z'];
+            $rows[$pid] = ['participant_id' => $pid, 'name' => $r['name'], 'option_ids' => [], 'at' => iso_utc($r['created_at'])];
         }
         $rows[$pid]['option_ids'][] = (int) $r['option_id'];
     }
@@ -230,7 +230,9 @@ function activity_my_choice(int $activityId, int $participantId): array
  */
 function activity_wait_for_change(int $id, int $since, int $timeout = GM_LIVE_WAIT_SECONDS): ?array
 {
-    @set_time_limit($timeout + 15);
+    if (function_exists('set_time_limit')) {
+        @set_time_limit($timeout + 15);
+    }
     $deadline = microtime(true) + $timeout;
     $stmt = db()->prepare('SELECT version FROM gm_activities WHERE id = ?');
     while (true) {
@@ -240,7 +242,7 @@ function activity_wait_for_change(int $id, int $since, int $timeout = GM_LIVE_WA
         if ($version === false) {
             return null;
         }
-        if ((int) $version !== $since || microtime(true) >= $deadline || connection_aborted()) {
+        if ((int) $version !== $since || microtime(true) >= $deadline) {
             break;
         }
         usleep(250000);
@@ -266,36 +268,42 @@ function activity_new_code(): string
 
 /**
  * Record a vote. Locks the activity row so votes are counted one at a time and
- * the version bump that wakes up presenter screens is always consistent.
+ * the version bump that wakes up presenter screens is always consistent. All
+ * rules are checked after the lock, so an edit made at the same moment can't
+ * slip through.
  */
 function activity_vote(array $activity, array $participant, $optionIds): array
 {
     $optionIds = array_values(array_unique(array_map('intval', is_array($optionIds) ? $optionIds : [])));
-    $settings = activity_settings($activity);
-    $valid = array_map('intval', array_column(activity_options((int) $activity['id']), 'id'));
-
     if (!$optionIds) {
         throw new UserError('Pick an option first.', 422, 'empty');
     }
-    foreach ($optionIds as $oid) {
-        if (!in_array($oid, $valid, true)) {
-            throw new UserError('That option no longer exists. Refresh and try again.', 409, 'stale');
-        }
-    }
-    if (!$settings['multiple'] && count($optionIds) > 1) {
-        throw new UserError('Pick just one option.', 422, 'too_many');
-    }
-    if ($settings['multiple'] && $settings['max_choices'] > 0 && count($optionIds) > $settings['max_choices']) {
-        throw new UserError('You can pick up to ' . $settings['max_choices'] . ' options.', 422, 'too_many');
-    }
 
-    return db_tx(static function (PDO $pdo) use ($activity, $participant, $optionIds, $settings) {
+    return db_tx(static function (PDO $pdo) use ($activity, $participant, $optionIds) {
         $id = (int) $activity['id'];
-        $lock = $pdo->prepare('SELECT status FROM gm_activities WHERE id = ? FOR UPDATE');
+        $lock = $pdo->prepare('SELECT * FROM gm_activities WHERE id = ? FOR UPDATE');
         $lock->execute([$id]);
-        if ($lock->fetchColumn() !== 'open') {
+        $locked = $lock->fetch();
+        if (!$locked) {
+            throw new UserError('This activity no longer exists.', 404, 'not_found');
+        }
+        if ($locked['status'] !== 'open') {
             throw new UserError('Voting is closed for this activity.', 409, 'closed');
         }
+        $settings = activity_settings($locked);
+        $valid = array_map('intval', array_column(activity_options($id), 'id'));
+        foreach ($optionIds as $oid) {
+            if (!in_array($oid, $valid, true)) {
+                throw new UserError('That option no longer exists. Refresh and try again.', 409, 'stale');
+            }
+        }
+        if (!$settings['multiple'] && count($optionIds) > 1) {
+            throw new UserError('Pick just one option.', 422, 'too_many');
+        }
+        if ($settings['multiple'] && $settings['max_choices'] > 0 && count($optionIds) > $settings['max_choices']) {
+            throw new UserError('You can pick up to ' . $settings['max_choices'] . ' options.', 422, 'too_many');
+        }
+
         $existing = (int) q_val(
             'SELECT COUNT(*) FROM gm_responses WHERE activity_id = ? AND participant_id = ?',
             [$id, $participant['id']]
@@ -317,8 +325,12 @@ function activity_vote(array $activity, array $participant, $optionIds): array
     });
 }
 
-/** Validate the editor's payload. Returns [title, description, settings, options]. */
-function activity_validate_input(array $in): array
+/**
+ * Validate the editor's payload. Returns [type, title, description, settings, options].
+ * $savedImages: images already stored on this activity — kept as-is even if
+ * the file is missing, so re-saving never silently drops an option and its votes.
+ */
+function activity_validate_input(array $in, array $savedImages = []): array
 {
     $type = (string) ($in['type'] ?? 'poll');
     if (!in_array($type, GM_ACTIVITY_TYPES, true)) {
@@ -337,9 +349,9 @@ function activity_validate_input(array $in): array
             continue;
         }
         $label = clean_text($o['label'] ?? '', 300);
-        $image = isset($o['image']) && is_string($o['image']) ? basename($o['image']) : null;
-        if ($image !== null && !upload_exists($image)) {
-            $image = null;
+        $image = isset($o['image']) && is_string($o['image']) && $o['image'] !== '' ? basename($o['image']) : null;
+        if ($image !== null && !in_array($image, $savedImages, true) && !upload_exists($image)) {
+            throw new UserError('One of the images didn’t finish uploading. Remove it and add it again.', 422, 'missing_image');
         }
         if ($label === '' && $image === null) {
             continue; // skip blank rows
@@ -358,7 +370,8 @@ function activity_validate_input(array $in): array
 /** Create ($id = null) or update an activity with its options. Returns the id. */
 function activity_save(?int $id, array $in): int
 {
-    [$type, $title, $description, $settings, $options] = activity_validate_input($in);
+    $savedImages = $id === null ? [] : array_values(array_filter(array_column(activity_options($id), 'image')));
+    [$type, $title, $description, $settings, $options] = activity_validate_input($in, $savedImages);
     $removedImages = [];
 
     $id = db_tx(static function (PDO $pdo) use ($id, $type, $title, $description, $settings, $options, &$removedImages) {
@@ -373,6 +386,8 @@ function activity_save(?int $id, array $in): int
             $id = (int) $pdo->lastInsertId();
             $existing = [];
         } else {
+            // Same lock as voting, so a vote and an edit never interleave.
+            q('SELECT id FROM gm_activities WHERE id = ? FOR UPDATE', [$id]);
             q(
                 'UPDATE gm_activities SET title = ?, description = ?, settings = ?, version = version + 1, updated_at = ? WHERE id = ?',
                 [$title, $description, $json, $now, $id]
@@ -485,8 +500,8 @@ function activity_list(): array
             'voters' => (int) $r['voters'],
             'option_count' => (int) $r['option_count'],
             'cover' => image_url($r['cover']),
-            'created_at' => $r['created_at'] . 'Z',
-            'updated_at' => $r['updated_at'] . 'Z',
+            'created_at' => iso_utc($r['created_at']),
+            'updated_at' => iso_utc($r['updated_at']),
         ];
     }, $rows);
 }

@@ -37,9 +37,12 @@ function upload_store_image(array $file): string
         throw new UserError('That image is too large. Please use one under 12 MB.', 413, 'too_large');
     }
 
-    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+    $size = @getimagesize($file['tmp_name']);
+    $mime = class_exists('finfo')
+        ? (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name'])
+        : ($size['mime'] ?? '');
     $types = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
-    if (!isset($types[$mime]) || @getimagesize($file['tmp_name']) === false) {
+    if (!isset($types[$mime]) || $size === false) {
         throw new UserError('Please choose a JPG, PNG, WebP or GIF image.', 415, 'bad_type');
     }
 
@@ -58,10 +61,18 @@ function upload_store_image(array $file): string
         return $name;
     }
 
-    @ini_set('memory_limit', '384M');
+    if (function_exists('ini_set')) {
+        @ini_set('memory_limit', '384M');
+    }
     $img = upload_load_gd($file['tmp_name'], $mime);
     if (!$img) {
         throw new UserError('That image couldn’t be read. Try another file.', 415, 'bad_image');
+    }
+    if (!imageistruecolor($img)) {
+        // Palette images (optimised PNGs) can't be written as WebP; convert first.
+        imagepalettetotruecolor($img);
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
     }
     if ($mime === 'image/jpeg') {
         $img = upload_fix_orientation($img, $file['tmp_name']);
@@ -94,8 +105,10 @@ function upload_store_image(array $file): string
         $ok = imagejpeg($img, $dir . '/' . $name, 85);
     }
     imagedestroy($img);
-    if (!$ok) {
-        throw new RuntimeException('Could not save the processed image.');
+    clearstatcache(true, $dir . '/' . $name);
+    if (!$ok || !is_file($dir . '/' . $name) || filesize($dir . '/' . $name) === 0) {
+        @unlink($dir . '/' . $name);
+        throw new UserError('That image couldn’t be processed. Try saving it as a JPG first.', 415, 'bad_image');
     }
     return $name;
 }

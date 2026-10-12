@@ -43,11 +43,10 @@ function admin_login_submit(): void
     $password = (string) ($_POST['password'] ?? '');
     $error = null;
 
-    $lock = login_lock_minutes();
+    $lock = login_attempt_lock_minutes();
     if ($lock > 0) {
-        $error = 'Too many attempts. Try again in ' . $lock . ' minute' . ($lock === 1 ? '' : 's') . '.';
+        $error = 'Too many attempts. Try again in ' . $lock . ' minutes.';
     } elseif (!admin_check_password($username, $password)) {
-        login_record_failure();
         usleep(300000);
         $error = 'That username and password don’t match.';
     }

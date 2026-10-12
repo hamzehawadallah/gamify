@@ -63,13 +63,14 @@ function admin_check_password(string $username, string $password): bool
     if (!empty($info['algo'])) {
         return password_verify($password, $stored);
     }
+    password_verify($password, '$2y$10$usesomesillystringforsaltuJ0d5yqUZ3cCVq3Wf5f4vKpZKW2a');
     return hash_equals($stored, $password);
 }
 
 function admin_login(): void
 {
     $expires = time() + GM_ADMIN_TTL;
-    $payload = implode('|', [(string) config('admin.username', 'admin'), (string) $expires, random_token(8)]);
+    $payload = implode('|', [base64url_encode((string) config('admin.username', 'admin')), (string) $expires, random_token(8)]);
     $sig = hash_hmac('sha256', $payload, admin_signing_key());
     $value = base64url_encode($payload) . '.' . $sig;
     setcookie(GM_ADMIN_COOKIE, $value, cookie_options($expires));
@@ -102,10 +103,11 @@ function admin_user(): ?string
     if (count($parts) !== 3 || (int) $parts[1] < time()) {
         return null;
     }
-    if (!hash_equals((string) config('admin.username', 'admin'), $parts[0])) {
+    $name = base64url_decode($parts[0]);
+    if (!hash_equals((string) config('admin.username', 'admin'), $name)) {
         return null;
     }
-    $user = $parts[0];
+    $user = $name;
     return $user;
 }
 
@@ -136,29 +138,24 @@ function require_admin_api(bool $checkCsrf = true): void
     }
 }
 
-/** Returns minutes remaining on a lockout, or 0 when the IP may try again. */
-function login_lock_minutes(): int
+/**
+ * Count this sign-in attempt, then report the lockout. Counting first (one
+ * atomic statement) means parallel requests can't sneak past the limit.
+ * Returns minutes remaining on a lockout, or 0 when the attempt may proceed.
+ */
+function login_attempt_lock_minutes(): int
 {
-    $row = q_one('SELECT attempts, last_at FROM gm_login_attempts WHERE ip = ?', [client_ip()]);
-    if (!$row || (int) $row['attempts'] < GM_LOGIN_MAX_ATTEMPTS) {
-        return 0;
-    }
-    $unlock = strtotime($row['last_at'] . ' UTC') + GM_LOGIN_LOCK_MINUTES * 60;
-    $left = $unlock - time();
-    if ($left <= 0) {
-        q('DELETE FROM gm_login_attempts WHERE ip = ?', [client_ip()]);
-        return 0;
-    }
-    return (int) ceil($left / 60);
-}
-
-function login_record_failure(): void
-{
+    $ip = client_ip();
+    $window = gmdate('Y-m-d H:i:s', time() - GM_LOGIN_LOCK_MINUTES * 60);
+    // Attempts older than the lock window start a fresh count.
+    q('DELETE FROM gm_login_attempts WHERE ip = ? AND last_at < ?', [$ip, $window]);
     q(
         'INSERT INTO gm_login_attempts (ip, attempts, last_at) VALUES (?, 1, ?)
          ON DUPLICATE KEY UPDATE attempts = attempts + 1, last_at = VALUES(last_at)',
-        [client_ip(), now_utc()]
+        [$ip, now_utc()]
     );
+    $attempts = (int) q_val('SELECT attempts FROM gm_login_attempts WHERE ip = ?', [$ip]);
+    return $attempts > GM_LOGIN_MAX_ATTEMPTS ? GM_LOGIN_LOCK_MINUTES : 0;
 }
 
 function login_clear_failures(): void

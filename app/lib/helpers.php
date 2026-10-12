@@ -33,6 +33,12 @@ function is_configured(): bool
     return is_array($GLOBALS['GM_CONFIG'] ?? null);
 }
 
+/** config.php exists (even if it is broken). The setup wizard never runs then. */
+function config_file_exists(): bool
+{
+    return is_file(GM_ROOT . '/config.php');
+}
+
 /** Read a config value using dot notation, e.g. config('db.host'). */
 function config(string $key, $default = null)
 {
@@ -137,6 +143,7 @@ function json_out($data, int $status = 200): void
     http_response_code($status);
     no_cache();
     header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -174,6 +181,12 @@ function random_token(int $bytes = 20): string
 function now_utc(): string
 {
     return gmdate('Y-m-d H:i:s');
+}
+
+/** MySQL "Y-m-d H:i:s" (UTC) → ISO 8601, which every browser can parse. */
+function iso_utc(string $datetime): string
+{
+    return str_replace(' ', 'T', $datetime) . 'Z';
 }
 
 function client_ip(): string
@@ -237,7 +250,13 @@ function send_security_headers(bool $allowFraming = false): void
 
 function gm_handle_exception(Throwable $e): void
 {
-    error_log('[gamify] ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    // A row changed underneath us (e.g. an option deleted mid-vote): ask to refresh.
+    if ($e instanceof PDOException && $e->getCode() === '23000') {
+        $e = new UserError('This activity just changed. Refresh and try again.', 409, 'stale');
+    }
+    if (!$e instanceof UserError) {
+        error_log('[gamify] ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    }
     $debug = (bool) config('debug', false);
 
     if ($e instanceof UserError) {

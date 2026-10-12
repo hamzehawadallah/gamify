@@ -33,10 +33,12 @@ $GLOBALS['GM_CONFIG'] = load_config();
 
 $debug = (bool) config('debug', false);
 error_reporting(E_ALL);
-ini_set('display_errors', $debug ? '1' : '0');
-ini_set('log_errors', '1');
-if (is_dir(GM_ROOT . '/storage') && is_writable(GM_ROOT . '/storage')) {
-    ini_set('error_log', GM_ROOT . '/storage/error.log');
+if (function_exists('ini_set')) {
+    ini_set('display_errors', $debug ? '1' : '0');
+    ini_set('log_errors', '1');
+    if (is_dir(GM_ROOT . '/storage') && is_writable(GM_ROOT . '/storage')) {
+        ini_set('error_log', GM_ROOT . '/storage/error.log');
+    }
 }
 
 set_exception_handler('gm_handle_exception');

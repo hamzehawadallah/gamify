@@ -41,6 +41,8 @@
   }
 
   function renderVoters(list, total) {
+    votersEl.hidden = !list.length;
+    if (!list.length) return;
     var shown = list.slice(0, 10);
     var frag = document.createDocumentFragment();
     shown.forEach(function (v) {
@@ -65,7 +67,7 @@
       body.innerHTML = '';
       body.appendChild(h('div.stage-state', null,
         big,
-        h('div.big-sub', { text: p.results.voters === 1 ? 'vote so far' : 'votes so far' }),
+        h('div.big-sub', { text: p.results.voters === 1 ? 'person has voted' : 'people have voted' }),
         h('div.hint', null, GM.icon('eye-off'), 'Results will be revealed soon')));
       big._gmValue = body._lastHiddenCount || 0;
       GM.countTo(big, p.results.voters);
@@ -96,7 +98,7 @@
     renderJoin(p.join);
 
     GM.countTo(countEl, p.results.voters);
-    countLabel.textContent = p.results.voters === 1 ? 'vote' : 'votes';
+    countLabel.textContent = GM.voterWord(p.results.voters, a.settings.multiple);
 
     closedBadge.hidden = a.status !== 'closed';
 

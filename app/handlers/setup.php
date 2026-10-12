@@ -8,7 +8,7 @@ declare(strict_types=1);
 function setup_page(): void
 {
     send_security_headers();
-    if (is_configured()) {
+    if (is_configured() || config_file_exists()) {
         render_error(404, 'Already set up', 'This site is already configured. To change settings, edit config.php on your server.');
         return;
     }
@@ -34,8 +34,8 @@ function setup_page(): void
         if ($v['db_name'] === '' || $v['db_user'] === '') {
             $errors[] = 'Enter the database name and user from hPanel → Databases.';
         }
-        if ($v['admin_user'] === '') {
-            $errors[] = 'Choose an admin username.';
+        if ($v['admin_user'] === '' || !preg_match('/^[\p{L}\p{N}._@-]+$/u', $v['admin_user'])) {
+            $errors[] = 'Choose an admin username using letters, numbers, dots, dashes or @.';
         }
         if (mb_strlen($adminPass) < 8) {
             $errors[] = 'Choose an admin password with at least 8 characters.';

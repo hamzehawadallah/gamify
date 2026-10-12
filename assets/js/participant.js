@@ -40,6 +40,8 @@
 
   function apply(d) {
     if (!d || d.changed === false) return false;
+    // Ignore a slow response that is older than what we already show.
+    if (d.activity && state.activity && (d.version || 0) < state.version) return false;
     rememberMe(d.me || null);
     state.activity = d.activity;
     state.my = d.my || [];
@@ -48,8 +50,9 @@
     return true;
   }
 
+  /** Resolves true/false for applied/unchanged, or null if the request failed (network). */
   function refresh() {
-    return GM.api('GET', 'api/activity/' + state.code).then(apply).catch(function () { return false; });
+    return GM.api('GET', 'api/activity/' + state.code).then(apply).catch(function () { return null; });
   }
 
   /* ---------- Rendering ---------- */
@@ -228,7 +231,7 @@
 
     if (state.results) {
       var holder = h('div');
-      var count = h('span', { text: GM.plural(state.results.voters, 'vote', 'votes') });
+      var count = h('span', { text: state.results.voters + ' ' + GM.voterWord(state.results.voters, a.settings.multiple) });
       section.appendChild(h('div.card.p-results', null,
         h('div.p-results-head', null, h('span', { text: 'Live results' }), h('span', null, h('span.live-dot'), count)),
         holder));
@@ -332,7 +335,7 @@
           if (resultsView && state.results) {
             // Same screen, new numbers: animate them in place.
             resultsView.view.update(state.activity, state.results);
-            resultsView.count.textContent = GM.plural(state.results.voters, 'vote', 'votes');
+            resultsView.count.textContent = state.results.voters + ' ' + GM.voterWord(state.results.voters, state.activity.settings.multiple);
           }
         }
         schedulePoll();
@@ -353,11 +356,19 @@
     rememberMe(state.me);
     render();
   } else if (GM.store.get('pid') && state.activity) {
-    // The cookie was cleared but this device remembers the participant.
-    refresh().then(function () {
-      if (!state.me) rememberMe(null);
-      render();
-    });
+    // The cookie was cleared but this device remembers the participant. If the
+    // network fails, try again rather than forgetting them (apply() clears the
+    // backup only when the server says the token is unknown).
+    var restore = function (attempt) {
+      refresh().then(function (ok) {
+        if (ok === null && attempt < 3) {
+          setTimeout(function () { restore(attempt + 1); }, 1200 * attempt);
+          return;
+        }
+        render();
+      });
+    };
+    restore(1);
   } else {
     render();
   }
