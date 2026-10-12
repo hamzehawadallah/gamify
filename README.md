@@ -73,9 +73,14 @@ The poll page gives you the QR code (download it as PNG or SVG for your slides),
 
 ## Show live results in PowerPoint
 
-1. In PowerPoint, go to **Insert → Get Add-ins** (or **Add-ins**), search for **Web Viewer** and add it.
-2. Insert Web Viewer on a slide and paste the poll's **presenter link**. Copy it from the poll page in admin and pick Light or Dark to match your deck.
-3. Start the slideshow. Votes appear live with no refresh.
+1. In PowerPoint, go to the **Home** tab and click **Add-ins** at the far right of the ribbon. On older versions it's under **Insert → Get Add-ins**; **File → Get Add-ins** also works.
+2. Search for **Web Viewer** and add it.
+3. Go to the slide, open **Home → Add-ins** again and click **Web Viewer** to place it. Paste the poll's **presenter link**: copy it from the poll page in admin, after picking Light or Dark to match your deck. If the add-in already shows `https://` in front of the box, paste the link without its own `https://`.
+4. Start the slideshow. Votes appear live with no refresh.
+
+**No Add-ins button, or it's greyed out?** Your company has probably switched off Office add-ins. Ask your IT team to allow **Web Viewer**, or use one of these instead:
+- Put a link on the slide (**Insert → Link**) to the presenter link. Click it during the slideshow to open the live results in your browser, then switch back with Alt+Tab.
+- Open the presenter link in a browser window on the projector and press **F** for full screen.
 
 The presenter link contains a private key, so only people you give it to can open the results screen.
 The page scales to any slide size and can show the QR code next to the results. You can turn that off per poll.

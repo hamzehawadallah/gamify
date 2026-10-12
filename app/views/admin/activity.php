@@ -84,10 +84,11 @@
         <details class="disclosure">
           <summary>Add to PowerPoint <?= icon('chevron-right') ?></summary>
           <ol class="steps">
-            <li><span>In PowerPoint, go to <b>Insert → Get Add-ins</b> (or <b>Add-ins</b>) and add <b>Web Viewer</b>.</span></li>
-            <li><span>Insert Web Viewer on a slide and paste the presenter link above.</span></li>
+            <li><span>In PowerPoint, click <b>Home → Add-ins</b> (far right of the ribbon), search for <b>Web Viewer</b> and add it.</span></li>
+            <li><span>On your slide, open <b>Home → Add-ins → Web Viewer</b> and paste the presenter link above. If the box already starts with https://, leave that part out.</span></li>
             <li><span>Start the slideshow. Votes appear instantly — no refresh needed.</span></li>
             <li><span>The link must start with <b>https://</b>. Turn on SSL for your domain in hPanel if it doesn’t.</span></li>
+            <li><span>No Add-ins button? Your company may block add-ins. Put the presenter link on the slide with <b>Insert → Link</b> and click it during the show, or open it in a browser and press <b>F</b> for full screen.</span></li>
           </ol>
         </details>
       </section>
