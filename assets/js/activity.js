@@ -113,7 +113,7 @@
       });
       answerEl.title = plain.join('\n');
       respList.appendChild(h('div.resp-row' + (seen && !seen[key] ? '.is-new' : ''), null,
-        GM.avatar(r.name, r.participant_id),
+        GM.avatar(r.name, r.emoji),
         h('span.resp-name', { dir: 'auto', text: r.name }),
         answerEl,
         h('time.resp-time', { datetime: r.at, 'data-at': r.at, text: GM.timeAgo(r.at) })));

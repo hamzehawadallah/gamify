@@ -18,6 +18,7 @@
     editing: false,                // going through the questions again to change answers
     selected: [],
     justVoted: false,
+    personaSkipped: false,         // no persona was free (or the list failed to load): carry on without
     view: null
   };
 
@@ -101,8 +102,8 @@
     var chip = top.querySelector('.me-chip');
     if (chip) chip.remove();
     if (!state.me) return;
-    chip = h('button.me-chip', { type: 'button', 'aria-label': 'Signed in as ' + state.me.name + '. Change name' },
-      GM.avatar(state.me.name, state.me.name),
+    chip = h('button.me-chip', { type: 'button', 'aria-label': 'Signed in as ' + state.me.name + '. Change name or persona' },
+      GM.avatar(state.me.name, state.me.emoji),
       h('span', { text: state.me.name }));
     chip.addEventListener('click', openNameSheet);
     top.appendChild(chip);
@@ -110,7 +111,7 @@
 
   function currentView() {
     if (!state.activity) return 'missing';
-    if (!state.me) return 'name';
+    if (!state.me || (!state.me.persona && !state.personaSkipped)) return 'name';
     if (!questions().length) return 'empty';
     var open = state.activity.status === 'open';
     if (state.editing && open) return 'vote';
@@ -147,47 +148,157 @@
       extra || null));
   }
 
-  function renderName(prefill) {
+  /* ---------- Personas ---------- */
+
+  var holdMemo = '';
+
+  /** This visit's claim on a suggested persona, kept for the browser session. */
+  function holdToken(value) {
+    if (value) holdMemo = value;
+    try {
+      if (value) sessionStorage.setItem('gm.hold', value);
+      return sessionStorage.getItem('gm.hold') || holdMemo;
+    } catch (e) {
+      return holdMemo;
+    }
+  }
+
+  /**
+   * The persona scroller: a row of emoji with the selected one first. Every
+   * visitor is offered a different free persona, held for them until they
+   * confirm, and personas other people use aren't shown.
+   */
+  function personaPicker(onChange) {
+    var list = [];
+    var selected = null;
+    var loaded = false;
+    var row = h('div.persona-row', { role: 'radiogroup', 'aria-label': 'Your persona' });
+    var el = h('div.persona-pick', { hidden: true }, h('div.persona-label', { text: 'Your persona' }), row);
+
+    function draw() {
+      row.innerHTML = '';
+      list.forEach(function (p) {
+        var on = p.key === selected;
+        row.appendChild(h('button.persona', {
+          type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', tabindex: on ? '0' : '-1',
+          'aria-label': p.label, title: p.label, 'data-key': p.key, text: p.emoji,
+          onclick: function () { choose(p.key); }
+        }));
+      });
+      el.hidden = !list.length;
+      if (onChange) onChange();
+    }
+
+    function take(d, keepOrder) {
+      holdToken(d.hold);
+      if (keepOrder && list.length) {
+        var free = {};
+        d.personas.forEach(function (p) { free[p.key] = true; });
+        list = list.filter(function (p) { return free[p.key]; });
+      } else {
+        list = d.personas;
+      }
+      selected = d.selected;
+      loaded = true;
+      draw();
+    }
+
+    function load() {
+      return GM.api('POST', 'api/personas', { hold: holdToken() })
+        .then(function (d) { take(d, false); row.scrollLeft = 0; })
+        .catch(function () { loaded = true; draw(); });
+    }
+
+    function choose(key) {
+      if (key === selected) return;
+      var before = selected;
+      selected = key;
+      draw();
+      GM.api('POST', 'api/personas', { hold: holdToken(), want: key })
+        .then(function (d) {
+          take(d, true);
+          if (d.selected !== key) GM.toast('Someone just picked that one. Choose another.', 'error');
+        })
+        .catch(function () { selected = before; draw(); });
+    }
+
+    // Arrow keys move along the row, like any radio group.
+    row.addEventListener('keydown', function (e) {
+      var step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!step || !list.length) return;
+      e.preventDefault();
+      if (document.documentElement.dir === 'rtl' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) step = -step;
+      var i = list.findIndex(function (p) { return p.key === selected; });
+      var next = list[Math.max(0, Math.min(list.length - 1, i + step))];
+      choose(next.key);
+      var btn = row.querySelector('[data-key="' + next.key + '"]');
+      if (btn) btn.focus();
+    });
+
+    load();
+    return {
+      el: el,
+      value: function () { return selected; },
+      ready: function () { return loaded; },
+      reload: load
+    };
+  }
+
+  /** Saves name + persona; a persona someone else just took reloads the picker. */
+  function saveMe(name, picker, errorEl) {
+    return GM.api('POST', 'api/me', { name: name, persona: picker.value(), hold: holdToken() })
+      .then(function (d) {
+        rememberMe(d.me);
+        if (!d.me.persona) state.personaSkipped = true; // none were free
+        return d;
+      })
+      .catch(function (err) {
+        errorEl.textContent = err.message;
+        if (err.code === 'persona_taken' || err.code === 'persona_invalid') picker.reload();
+        throw err;
+      });
+  }
+
+  /** First visit: persona + name. Also shown to people named earlier who have no persona yet. */
+  function renderName() {
+    var returning = !!state.me;
     var input = h('input.input.input-xl', {
       type: 'text', name: 'name', maxlength: '60', placeholder: 'Your name', autocomplete: 'name',
       autocapitalize: 'words', enterkeyhint: 'go', spellcheck: 'false', 'aria-label': 'Your name', dir: 'auto'
     });
-    input.value = prefill || GM.store.get('name') || '';
+    input.value = returning ? state.me.name : (GM.store.get('name') || '');
     var error = h('p.form-error', { role: 'alert' });
     var btn = h('button.btn.btn-primary.btn-lg', { type: 'submit', text: 'Continue' });
+    var picker = personaPicker(sync);
 
     function sync() {
-      var v = input.value.trim();
-      btn.disabled = v === '';
+      btn.disabled = input.value.trim() === '' || !picker.ready();
     }
     input.addEventListener('input', sync);
     sync();
 
     var form = h('form', { novalidate: true }, input, error, btn,
-      h('p.note', null, GM.icon('shield'), h('span', { text: 'Your name is saved on this device, so you only type it once. The presenter sees it next to your answers.' })));
+      h('p.note', null, GM.icon('shield'), h('span', { text: 'Your name and persona are saved on this device, so you only choose them once. The presenter sees your persona next to your answers.' })));
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var name = input.value.trim();
-      if (!name) return;
+      if (!name || !picker.ready()) return;
       error.textContent = '';
       GM.busy(btn, true);
-      GM.api('POST', 'api/me', { name: name })
-        .then(function (d) {
-          rememberMe(d.me);
-          return refresh();
-        })
+      saveMe(name, picker, error)
+        .then(function () { return refresh(); })
         .then(function () { render(); })
-        .catch(function (err) {
-          GM.busy(btn, false);
-          error.textContent = err.message;
-        });
+        .catch(function () { GM.busy(btn, false); sync(); });
     });
 
     main.appendChild(h('section.p-view.p-name', null,
-      h('h1.p-title', { text: 'What’s your name?' }),
-      state.activity ? h('p.p-desc', { dir: 'auto', text: state.activity.title }) : null,
+      picker.el,
+      h('h1.p-title', { text: returning ? 'Pick your persona' : 'What’s your name?' }),
+      returning
+        ? h('p.p-desc', { text: 'Each persona belongs to one person. One is picked for you above; tap another to change it.' })
+        : state.activity ? h('p.p-desc', { dir: 'auto', text: state.activity.title }) : null,
       form));
-    setTimeout(function () { if (!input.value) input.focus(); }, 350);
+    if (!returning) setTimeout(function () { if (!input.value) input.focus(); }, 350);
   }
 
   function renderVote() {
@@ -402,9 +513,10 @@
     var err = h('p.form-error', { role: 'alert' });
     var save = h('button.btn.btn-primary.btn-lg', { type: 'submit', text: 'Save' });
     var fresh = h('button.btn.btn-plain', { type: 'button', text: 'Not ' + state.me.name + '? Start as someone new' });
+    var picker = personaPicker(function () { save.disabled = !picker || !picker.ready(); });
     var form = h('form.sheet-body', { novalidate: true },
-      h('h2.dialog-title', { text: 'Your name' }),
-      h('p.muted', { style: { fontSize: '15px', marginTop: '-8px' }, text: 'This is what the presenter sees next to your answers.' }),
+      h('h2.dialog-title', { text: 'Your persona and name' }),
+      picker.el,
       input, err, save, fresh);
     var dlg = h('dialog.sheet', null, h('div.sheet-grabber'), form);
     document.body.appendChild(dlg);
@@ -417,18 +529,15 @@
     dlg.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      err.textContent = '';
       GM.busy(save, true);
-      GM.api('POST', 'api/me', { name: input.value })
-        .then(function (d) {
-          rememberMe(d.me);
+      saveMe(input.value, picker, err)
+        .then(function () {
           close();
           renderTop();
-          GM.toast('Name updated', 'success');
+          GM.toast('Saved', 'success');
         })
-        .catch(function (e2) {
-          GM.busy(save, false);
-          err.textContent = e2.message;
-        });
+        .catch(function () { GM.busy(save, false); });
     });
     fresh.addEventListener('click', function () {
       GM.api('POST', 'api/me/forget').catch(function () {}).then(function () {

@@ -38,12 +38,35 @@ function api_me(): void
     json_out(['me' => participant_public(participant_current())]);
 }
 
+/** Save the participant's name and, if given, the persona they picked. */
 function api_me_save(): void
 {
-    $name = participant_validate_name(input_json()['name'] ?? '');
+    $in = input_json();
+    $name = participant_validate_name($in['name'] ?? '');
+    $persona = isset($in['persona']) && is_string($in['persona']) && $in['persona'] !== '' ? $in['persona'] : null;
+    $hold = persona_valid_hold($in['hold'] ?? null);
     $me = participant_current();
-    $me = $me ? participant_rename($me, $name) : participant_create($name);
+    $changed = $me && ($me['name'] !== $name || ($persona !== null && $persona !== $me['persona']));
+    $me = db_retry(static fn() => db_tx(function () use ($me, $name, $persona, $hold) {
+        $me = $me ? participant_rename($me, $name) : participant_create($name);
+        if ($persona !== null && $persona !== ($me['persona'] ?? null)) {
+            persona_claim((int) $me['id'], $persona, $hold);
+            $me['persona'] = $persona;
+        }
+        return $me;
+    }));
+    if ($changed) {
+        participant_touch_activities((int) $me['id']);
+    }
     json_out(['me' => participant_public($me)]);
+}
+
+/** The personas this visitor can pick from; holds the suggested one (or the one in "want"). */
+function api_personas(): void
+{
+    $in = input_json();
+    $want = isset($in['want']) && is_string($in['want']) && $in['want'] !== '' ? $in['want'] : null;
+    json_out(persona_choices(participant_current(), persona_valid_hold($in['hold'] ?? null), $want));
 }
 
 function api_me_forget(): void

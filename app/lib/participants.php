@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 const GM_PARTICIPANT_COOKIE = 'gm_pid';
 const GM_PARTICIPANT_TTL = 34560000; // 400 days, the longest browsers allow
+const GM_PARTICIPANT_SEEN_EVERY = 600; // refresh last_seen_at at most every 10 minutes
 
 /** Well-formed tokens sent with this request: the cookie first, then the localStorage copy. */
 function participant_tokens_from_request(): array
@@ -35,11 +36,15 @@ function participant_current(): ?array
     }
     $cache = null;
     foreach (participant_tokens_from_request() as $token) {
-        $row = q_one('SELECT id, token, name FROM gm_participants WHERE token = ?', [$token]);
+        $row = q_one('SELECT id, token, name, persona, last_seen_at FROM gm_participants WHERE token = ?', [$token]);
         if ($row) {
             // Restore the cookie from the localStorage copy if the browser dropped it.
             if (($_COOKIE[GM_PARTICIPANT_COOKIE] ?? '') !== $token) {
                 participant_set_cookie($token);
+            }
+            // Being around keeps your persona yours (see GM_PERSONA_KEEP_HOURS).
+            if (strtotime($row['last_seen_at'] . ' UTC') < time() - GM_PARTICIPANT_SEEN_EVERY) {
+                q('UPDATE gm_participants SET last_seen_at = ? WHERE id = ?', [now_utc(), $row['id']]);
             }
             $cache = $row;
             break;
@@ -66,7 +71,7 @@ function participant_create(string $name): array
         [$token, $name, $now, $now]
     );
     participant_set_cookie($token);
-    return ['id' => (int) db()->lastInsertId(), 'token' => $token, 'name' => $name];
+    return ['id' => (int) db()->lastInsertId(), 'token' => $token, 'name' => $name, 'persona' => null];
 }
 
 function participant_rename(array $participant, string $name): array
@@ -76,9 +81,28 @@ function participant_rename(array $participant, string $name): array
     return $participant;
 }
 
+/** Let live screens showing this person's answers pick up a new name or persona. */
+function participant_touch_activities(int $participantId): void
+{
+    q(
+        'UPDATE gm_activities SET version = version + 1
+          WHERE id IN (SELECT activity_id FROM gm_responses WHERE participant_id = ?)',
+        [$participantId]
+    );
+}
+
 function participant_public(?array $p): ?array
 {
-    return $p ? ['name' => $p['name'], 'token' => $p['token']] : null;
+    if (!$p) {
+        return null;
+    }
+    $persona = $p['persona'] ?? null;
+    return [
+        'name' => $p['name'],
+        'token' => $p['token'],
+        'persona' => persona_emoji($persona) !== null ? $persona : null,
+        'emoji' => persona_emoji($persona),
+    ];
 }
 
 function participant_forget(): void

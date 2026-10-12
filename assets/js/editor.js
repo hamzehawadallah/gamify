@@ -518,7 +518,7 @@
     var shell = h('div.p-shell', { 'aria-hidden': 'true' },
       h('header.p-top', null,
         h('span.brand', null, h('img.brand-logo', { src: document.querySelector('.nav .brand-logo').src, alt: '' })),
-        h('span.me-chip', null, GM.avatar('Alex Morgan', 3), h('span', { text: 'Alex' }))),
+        h('span.me-chip', null, GM.avatar('Alex Morgan', '\uD83D\uDC69\u200D\uD83D\uDCBC'), h('span', { text: 'Alex' }))),
       h('main.p-main', null, view),
       h('div.p-actions', null, h('div.p-actions-inner', null, submit)));
 

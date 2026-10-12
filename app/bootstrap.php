@@ -21,6 +21,7 @@ require GM_ROOT . '/app/lib/helpers.php';
 require GM_ROOT . '/app/lib/db.php';
 require GM_ROOT . '/app/lib/auth.php';
 require GM_ROOT . '/app/lib/participants.php';
+require GM_ROOT . '/app/lib/personas.php';
 require GM_ROOT . '/app/lib/activities.php';
 require GM_ROOT . '/app/lib/uploads.php';
 require GM_ROOT . '/app/handlers/pages.php';

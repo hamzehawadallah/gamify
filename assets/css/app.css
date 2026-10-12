@@ -9,6 +9,7 @@
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Geist", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Geist Mono", Menlo, Consolas, monospace;
+  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 
   --bg: #f6f6f7;
   --surface: #ffffff;
@@ -727,6 +728,14 @@ button {
   user-select: none;
 }
 
+/* A persona emoji instead of initials. */
+.avatar.is-persona {
+  background: var(--fill-2);
+  font-family: var(--font-emoji);
+  font-size: 18px;
+  font-weight: 400;
+}
+
 /* Spinner */
 .spinner {
   width: 22px;
@@ -932,6 +941,7 @@ button {
 
 .sheet-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   padding: 18px 22px calc(22px + env(safe-area-inset-bottom));
 }
@@ -1144,6 +1154,75 @@ button {
   width: 28px;
   height: 28px;
   font-size: 11px;
+}
+
+.me-chip .avatar.is-persona {
+  font-size: 17px;
+}
+
+/* Persona picker: a row of emoji that scrolls sideways, edge to edge. */
+.persona-pick {
+  --edge: 20px;
+  margin: 0 calc(var(--edge) * -1) 26px;
+}
+
+.sheet-body .persona-pick {
+  --edge: 22px;
+  margin-bottom: 0;
+}
+
+.persona-label {
+  margin-bottom: 8px;
+  padding: 0 var(--edge);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+}
+
+.persona-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px var(--edge) 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--edge);
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.persona-row::-webkit-scrollbar {
+  display: none;
+}
+
+.persona {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-family: var(--font-emoji);
+  font-size: 32px;
+  line-height: 1;
+  scroll-snap-align: start;
+  transition: box-shadow 0.15s var(--ease), background-color 0.15s var(--ease);
+}
+
+@media (hover: hover) {
+  .persona:hover {
+    background: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+}
+
+.persona[aria-checked="true"] {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .me-chip span:last-child {
@@ -1371,7 +1450,7 @@ button {
 
 /* Name step */
 .p-name {
-  padding-top: 7vh;
+  padding-top: 3vh;
 }
 
 .p-name .p-title {
@@ -2023,6 +2102,10 @@ button {
   font-size: calc(var(--u) * 1.05);
   box-shadow: 0 0 0 calc(var(--u) * 0.25) var(--surface);
   animation: fade-in 0.3s var(--ease) both;
+}
+
+.voters .avatar.is-persona {
+  font-size: calc(var(--u) * 1.8);
 }
 
 .voters .more {

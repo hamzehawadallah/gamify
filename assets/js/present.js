@@ -62,8 +62,8 @@
     var shown = list.slice(0, 10);
     var frag = document.createDocumentFragment();
     shown.forEach(function (v) {
-      var av = GM.avatar(v.initials, v.id);
-      av.textContent = v.initials;
+      var av = GM.avatar('', v.emoji);
+      if (!v.emoji) av.textContent = v.initials;
       if (seenVoters[v.id]) av.style.animation = 'none';
       seenVoters[v.id] = true;
       frag.appendChild(av);

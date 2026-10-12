@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const GM_SCHEMA_VERSION = 2;
+const GM_SCHEMA_VERSION = 3;
 
 function db_connect(array $c): PDO
 {
@@ -71,6 +71,25 @@ function db_tx(callable $fn)
             $pdo->rollBack();
         }
         throw $e;
+    }
+}
+
+/**
+ * Run $fn, retrying a few times if MySQL picks it as a deadlock victim
+ * (it can happen when many phones claim personas in the same instant).
+ */
+function db_retry(callable $fn, int $tries = 4)
+{
+    for ($attempt = 1; ; $attempt++) {
+        try {
+            return $fn();
+        } catch (PDOException $e) {
+            $deadlock = $e->getCode() === '40001' || in_array((int) ($e->errorInfo[1] ?? 0), [1205, 1213], true);
+            if (!$deadlock || $attempt >= $tries || db()->inTransaction()) {
+                throw $e;
+            }
+            usleep(random_int(20000, 80000) * $attempt);
+        }
     }
 }
 
@@ -161,6 +180,17 @@ function gm_migrations(): array
             ) $table",
             'db_migrate_questions',
         ],
+        // Each participant picks a persona (emoji); one owner per persona.
+        3 => [
+            'db_migrate_personas',
+            "CREATE TABLE IF NOT EXISTS gm_persona_holds (
+                persona VARCHAR(32) NOT NULL,
+                hold_token CHAR(32) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                PRIMARY KEY (persona),
+                KEY idx_persona_holds_token (hold_token)
+            ) $table",
+        ],
     ];
 }
 
@@ -217,6 +247,16 @@ function db_constraint_exists(PDO $pdo, string $table, string $name): bool
     $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?');
     $stmt->execute([$table, $name]);
     return (bool) $stmt->fetchColumn();
+}
+
+/** Schema step 3: the persona column. Safe to re-run. */
+function db_migrate_personas(PDO $pdo): void
+{
+    if (!db_column_exists($pdo, 'gm_participants', 'persona')) {
+        $pdo->exec('ALTER TABLE gm_participants
+            ADD COLUMN persona VARCHAR(32) NULL AFTER name,
+            ADD UNIQUE KEY uq_participant_persona (persona)');
+    }
 }
 
 /**

@@ -5,6 +5,7 @@ You watch the results update live on the big screen, including inside PowerPoint
 
 - **Join in seconds.** Each activity has its own QR code and 6-digit code. There's nothing to install.
 - **Names are remembered.** Participants type their name once. It's saved on their phone and reused for every future activity on your site.
+- **Personas.** Each participant picks a persona emoji from a scrolling row (people and characters only). No two people share one: everyone is offered a different free persona, held for them while they type their name, and personas in use aren't shown. The presenter screen shows them as people vote.
 - **Activities with several questions.** One QR code per activity, holding one or more questions, like a toolbox voting wall with three sections. Each question has its own title, description and color.
 - **Pictures on options.** Every question can be single or multiple choice (with an optional limit), with a picture on any option.
 - **Instant results.** New votes reach the presenter screen in well under a second.
@@ -115,6 +116,16 @@ During a session you control everything from the activity's admin page, e.g. on 
 
 ---
 
+## How personas stay unique
+
+- A persona belongs to one person at a time, across all your activities. It stays theirs while they've used the site in the last 12 hours.
+- When someone opens the join page, the next free persona is reserved for them for 15 minutes, so two people scanning at the same moment get different ones.
+- After 12 hours away, a persona can go to someone new, but only once all unused personas have been given out (the persona whose owner has been away longest goes first). If that happens, the earlier owner is asked to pick a new one next time.
+- If every persona is in use, newcomers can still join; they show with their initials.
+- People who joined before personas existed are asked to pick one the next time they open an activity.
+
+The list of personas is in `app/lib/personas.php`.
+
 ## How "instant" works on shared hosting
 
 Shared hosting doesn't allow WebSockets, so VCL Gamify uses **long-polling**:
@@ -152,7 +163,7 @@ Database changes in new versions are applied automatically on the first request,
 ## Privacy & security
 
 - Participants are identified by a random token stored in a cookie and in the browser. No accounts and no email addresses.
-- The presenter sees only voters' **initials** on screen. Full names appear only on your admin page and in the CSV export.
+- The presenter screen shows only voters' **personas** (or initials, for anyone without one). Full names appear only on your admin page and in the CSV export.
 - Admin pages use a signed, HTTP-only cookie, CSRF protection and sign-in rate limiting.
 - Uploaded images are checked and re-encoded, and nothing in `uploads/` can execute.
 - `.htaccess` blocks `app/`, `storage/`, `config.php` and hidden files such as `.git`.

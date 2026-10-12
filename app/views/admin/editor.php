@@ -49,7 +49,7 @@
             <input class="switch" type="checkbox" data-setting="show_qr">
           </label>
           <label class="list-row">
-            <span class="list-row-text"><span class="list-row-title">Show voters’ initials</span><span class="list-row-sub">A row of avatars that grows as people vote.</span></span>
+            <span class="list-row-text"><span class="list-row-title">Show who voted</span><span class="list-row-sub">Each voter’s persona appears on screen as they vote.</span></span>
             <input class="switch" type="checkbox" data-setting="show_voters">
           </label>
         </div>

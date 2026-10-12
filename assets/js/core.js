@@ -278,18 +278,11 @@
     return out || '?';
   };
 
-  GM.hue = function (seed) {
-    var s = String(seed);
-    var h = 0;
-    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-    return h % 7;
-  };
-
-  GM.avatar = function (name, seed, cls) {
-    return GM.h('span.avatar' + (cls ? '.' + cls : ''), {
-      'data-hue': GM.hue(seed !== undefined ? seed : name),
+  /** A round avatar: the person's persona emoji, or their initials if they have none. */
+  GM.avatar = function (name, emoji, cls) {
+    return GM.h('span.avatar' + (emoji ? '.is-persona' : '') + (cls ? '.' + cls : ''), {
       'aria-hidden': 'true',
-      text: GM.initials(name)
+      text: emoji || GM.initials(name)
     });
   };
 

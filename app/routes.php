@@ -15,6 +15,7 @@ function gm_routes(): array
         ['GET', '#^/api/me$#', 'api_me'],
         ['POST', '#^/api/me$#', 'api_me_save'],
         ['POST', '#^/api/me/forget$#', 'api_me_forget'],
+        ['POST', '#^/api/personas$#', 'api_personas'],
         ['GET', "#^/api/activity/$code$#", 'api_activity'],
         ['POST', "#^/api/activity/$code/vote$#", 'api_vote'],
 

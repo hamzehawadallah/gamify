@@ -21,7 +21,7 @@ function activity_default_settings(): array
         'allow_change' => true,   // participants can change their votes while voting is open
         'show_results' => false,  // show live results on participants' phones after voting
         'show_qr' => true,        // show the QR code on the presenter screen
-        'show_voters' => true,    // show voters' initials on the presenter screen
+        'show_voters' => true,    // show voters' personas on the presenter screen
     ];
 }
 
@@ -215,10 +215,10 @@ function activity_results(array $activity, array $questions): array
 function activity_recent_voters(int $activityId, int $limit = 14): array
 {
     return q_all(
-        'SELECT p.id, p.name, MAX(r.created_at) AS voted_at
+        'SELECT p.id, p.name, p.persona, MAX(r.created_at) AS voted_at
            FROM gm_responses r JOIN gm_participants p ON p.id = r.participant_id
           WHERE r.activity_id = ?
-          GROUP BY p.id, p.name
+          GROUP BY p.id, p.name, p.persona
           ORDER BY voted_at DESC, p.id DESC
           LIMIT ' . max(1, min(50, $limit)),
         [$activityId]
@@ -251,9 +251,8 @@ function activity_live_payload(array $activity, bool $admin = false): array
     $voters = [];
     if ($admin || $settings['show_voters']) {
         foreach (activity_recent_voters((int) $activity['id']) as $v) {
-            $voters[] = $admin
-                ? ['id' => (int) $v['id'], 'name' => $v['name'], 'initials' => initials($v['name'])]
-                : ['id' => (int) $v['id'], 'initials' => initials($v['name'])];
+            $voter = ['id' => (int) $v['id'], 'initials' => initials($v['name']), 'emoji' => persona_emoji($v['persona'])];
+            $voters[] = $admin ? $voter + ['name' => $v['name']] : $voter;
         }
     }
 
@@ -285,7 +284,7 @@ function activity_response_rows(int $activityId, array $questions, int $limit = 
     }
     $rows = [];
     foreach (q_all(
-        'SELECT r.participant_id, p.name, r.question_id, r.option_id, r.created_at
+        'SELECT r.participant_id, p.name, p.persona, r.question_id, r.option_id, r.created_at
            FROM gm_responses r JOIN gm_participants p ON p.id = r.participant_id
           WHERE r.activity_id = ?
           ORDER BY r.created_at DESC, r.id DESC',
@@ -296,7 +295,13 @@ function activity_response_rows(int $activityId, array $questions, int $limit = 
             if ($limit > 0 && count($rows) >= $limit) {
                 continue;
             }
-            $rows[$pid] = ['participant_id' => $pid, 'name' => $r['name'], 'answers' => [], 'at' => iso_utc($r['created_at'])];
+            $rows[$pid] = [
+                'participant_id' => $pid,
+                'name' => $r['name'],
+                'emoji' => persona_emoji($r['persona']),
+                'answers' => [],
+                'at' => iso_utc($r['created_at']),
+            ];
         }
         $rows[$pid]['answers'][(int) $r['question_id']][] = (int) $r['option_id'];
     }
