@@ -577,11 +577,14 @@ function activity_validate_input(array $in, array $savedImages = []): array
                 continue; // skip blank rows
             }
             $color = isset($o['color']) && is_string($o['color']) ? $o['color'] : null;
+            // Saved options of another question that the editor merged into this one (same name).
+            $merge = array_values(array_unique(array_filter(array_map('intval', is_array($o['merge'] ?? null) ? $o['merge'] : []))));
             $options[] = [
                 'id' => isset($o['id']) ? (int) $o['id'] : 0,
                 'label' => $label,
                 'image' => $image,
                 'color' => $ranking ? option_color($color, count($options)) : null,
+                'merge' => array_slice($merge, 0, GM_MAX_OPTIONS * GM_MAX_QUESTIONS),
             ];
         }
         $qTitle = clean_text($qIn['title'] ?? '', 300);
@@ -620,7 +623,12 @@ function activity_validate_input(array $in, array $savedImages = []): array
     return [$type, $title, $description, $settings, $questions];
 }
 
-/** Create ($id = null) or update an activity with its questions and options. Returns the id. */
+/**
+ * Create ($id = null) or update an activity with its questions and options. Returns the id.
+ * Merging: an option may arrive under another question than the one it was saved in
+ * (it moves there), or list same-named options it absorbed in "merge" (they are removed).
+ * Between two vote questions their votes come along; ranking places can't, so they go.
+ */
 function activity_save(?int $id, array $in): int
 {
     $savedImages = $id === null ? [] : activity_images($id);
@@ -650,6 +658,30 @@ function activity_save(?int $id, array $in): int
             }
         }
 
+        // Which question each saved option belongs to, and which ones the editor
+        // still uses (directly or merged into another option), wherever they now sit.
+        $owner = [];
+        $optionRow = [];
+        foreach ($existing as $eq) {
+            foreach ($eq['options'] as $o) {
+                $owner[$o['id']] = $eq['id'];
+                $optionRow[$o['id']] = $o;
+            }
+        }
+        $direct = [];
+        $absorbed = [];
+        foreach ($questions as $q) {
+            foreach ($q['options'] as $o) {
+                if (isset($owner[$o['id']])) {
+                    $direct[$o['id']] = true;
+                }
+                foreach ($o['merge'] as $mid) {
+                    $absorbed[$mid] = true;
+                }
+            }
+        }
+        $placed = [];
+
         $keepQuestions = [];
         foreach ($questions as $qPos => $q) {
             $qJson = json_encode($q['settings']);
@@ -675,24 +707,64 @@ function activity_save(?int $id, array $in): int
                 $qid = (int) $pdo->lastInsertId();
             }
             $keepQuestions[$qid] = true;
+            // Votes from another question can join this one only if both are, and stay, votes.
+            $takesVotes = $q['type'] === 'poll' && (!isset($existing[$qid]) || $existing[$qid]['type'] === 'poll');
 
             $keepOptions = [];
             foreach ($q['options'] as $pos => $o) {
-                if ($o['id'] && isset($oldOptions[$o['id']])) {
-                    q('UPDATE gm_options SET label = ?, image = ?, color = ?, position = ? WHERE id = ?', [$o['label'], $o['image'], $o['color'], $pos, $o['id']]);
-                    $keepOptions[$o['id']] = true;
-                    if ($oldOptions[$o['id']]['image'] && $oldOptions[$o['id']]['image'] !== $o['image']) {
-                        $removedImages[] = $oldOptions[$o['id']]['image'];
+                $oid = $o['id'];
+                if ($oid && isset($owner[$oid]) && !isset($placed[$oid])) {
+                    // Saved before: here already, or merged in from another question.
+                    $from = $owner[$oid];
+                    q(
+                        'UPDATE gm_options SET question_id = ?, label = ?, image = ?, color = ?, position = ? WHERE id = ?',
+                        [$qid, $o['label'], $o['image'], $o['color'], $pos, $oid]
+                    );
+                    if ($from !== $qid) {
+                        if ($takesVotes && $existing[$from]['type'] === 'poll') {
+                            q('UPDATE gm_responses SET question_id = ? WHERE option_id = ?', [$qid, $oid]);
+                        } else {
+                            q('DELETE FROM gm_responses WHERE option_id = ?', [$oid]);
+                        }
+                    }
+                    if ($optionRow[$oid]['image'] && $optionRow[$oid]['image'] !== $o['image']) {
+                        $removedImages[] = $optionRow[$oid]['image'];
                     }
                 } else {
                     q(
                         'INSERT INTO gm_options (activity_id, question_id, label, image, color, position) VALUES (?, ?, ?, ?, ?, ?)',
                         [$id, $qid, $o['label'], $o['image'], $o['color'], $pos]
                     );
+                    $oid = (int) $pdo->lastInsertId();
+                }
+                $placed[$oid] = true;
+                $keepOptions[$oid] = true;
+
+                // Same-named options merged into this one: their votes join it, then they go.
+                foreach ($o['merge'] as $mid) {
+                    if (!isset($owner[$mid]) || isset($direct[$mid]) || isset($placed[$mid])) {
+                        continue; // not this activity's, or still an option in its own right
+                    }
+                    $placed[$mid] = true;
+                    if ($takesVotes && $existing[$owner[$mid]]['type'] === 'poll') {
+                        // Someone who picked both keeps a single pick.
+                        q(
+                            'DELETE r FROM gm_responses r
+                               JOIN gm_responses k ON k.participant_id = r.participant_id AND k.option_id = ?
+                              WHERE r.option_id = ?',
+                            [$oid, $mid]
+                        );
+                        q('UPDATE gm_responses SET option_id = ?, question_id = ? WHERE option_id = ?', [$oid, $qid, $mid]);
+                    }
+                    q('DELETE FROM gm_options WHERE id = ?', [$mid]); // and any answers it still has
+                    if ($optionRow[$mid]['image']) {
+                        $removedImages[] = $optionRow[$mid]['image'];
+                    }
                 }
             }
             foreach ($oldOptions as $oid => $o) {
-                if (!isset($keepOptions[$oid])) {
+                // Options moved to (or merged into) another question are handled there.
+                if (!isset($keepOptions[$oid]) && !isset($direct[$oid]) && !isset($absorbed[$oid])) {
                     q('DELETE FROM gm_options WHERE id = ?', [$oid]);
                     if ($o['image']) {
                         $removedImages[] = $o['image'];

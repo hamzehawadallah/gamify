@@ -77,6 +77,11 @@ Go to `yourdomain.com/admin` → **New activity**:
 4. Want people to put things in order instead? Switch the question from **Vote** to **Ranking** (see below).
 5. Click **Create activity**.
 
+**Merging questions.** To combine two questions, click the merge button on the one to fold in (next to the delete button) and pick the question it goes into.
+Its options move to the end of that question and it disappears. Options with the same name and picture are combined rather than listed twice.
+Nothing is saved until you save, and the message that appears has an **Undo** button.
+Already have votes? Merging one vote question into another keeps them: each option keeps its votes, combined options add theirs together, and someone who picked the same option in both questions counts once. Ranking places can't be combined, so merging a ranking (or into one) asks first and removes those answers when you save.
+
 The activity page gives you the QR code (download it as PNG or SVG for your slides), the join link and the presenter link.
 Participants scan once, answer each question in turn ("1 of 3", "2 of 3" …) and see a summary of their choices at the end.
 

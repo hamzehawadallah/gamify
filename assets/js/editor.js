@@ -1,6 +1,6 @@
 /* Activity editor: title and instructions, one or more questions (each a vote or
-   a ranking, with a color, options or items with images, drag to reorder),
-   settings and a live phone preview. */
+   a ranking, with a color, options or items with images, drag to reorder, merge
+   into another question), settings and a live phone preview. */
 (function () {
   'use strict';
 
@@ -18,7 +18,11 @@
 
   function makeOption(o) {
     o = o || {};
-    return { key: uid(), id: o.id || null, label: o.label || '', image: o.image || null, imageUrl: o.image_url || null, color: o.color || null, uploading: false };
+    return {
+      key: uid(), id: o.id || null, label: o.label || '', image: o.image || null, imageUrl: o.image_url || null, color: o.color || null,
+      merge: [], // saved options of other questions folded into this one by a merge (same name)
+      uploading: false
+    };
   }
 
   function makeQuestion(q, position) {
@@ -28,6 +32,7 @@
       key: uid(),
       id: q.id || null,
       type: q.type || 'poll',
+      savedType: q.id ? q.type || 'poll' : null,
       title: q.title || '',
       description: q.description || '',
       settings: {
@@ -137,12 +142,18 @@
     down.disabled = qi === n - 1;
     var del = h('button.btn.btn-icon.btn-sm.btn-plain.btn-del', { type: 'button', title: 'Delete question', 'aria-label': 'Delete question', onclick: function () { removeQ(q); } }, GM.icon('trash'));
     del.disabled = n <= 1;
+    var merge = h('button.btn.btn-icon.btn-sm.btn-plain', {
+      type: 'button', title: 'Merge into another question', 'aria-haspopup': 'menu',
+      'aria-label': 'Merge question ' + (qi + 1) + ' into another question',
+      onclick: function () { openMergePop(merge, q); }
+    }, GM.icon('merge'));
+    merge.hidden = n < 2;
 
     card.appendChild(h('div.qcard-head', null,
       h('span.qcard-badge', { text: String(qi + 1) }),
       h('span.qcard-label', { text: 'Question ' + (qi + 1) }),
       dots,
-      h('div.qcard-tools', null, up, down, del)));
+      h('div.qcard-tools', null, up, down, merge, del)));
 
     // Type: people pick options (a vote) or drag items into order (a ranking)
     var ranking = q.type === 'ranking';
@@ -437,24 +448,55 @@
     if (handle) handle.focus();
   }
 
-  /* Item colors: a small palette that opens from the item's number */
+  /* Popovers (item colors, merging) that open from a button */
   var pop = null;
 
-  function closeColorPop(refocus) {
+  function closePop(refocus) {
     if (!pop) return;
     var anchor = pop.anchor;
     pop.el.remove();
     document.removeEventListener('pointerdown', pop.outside, true);
     document.removeEventListener('keydown', pop.key, true);
-    window.removeEventListener('resize', pop.close);
-    window.removeEventListener('scroll', pop.close, true);
+    window.removeEventListener('resize', pop.place);
+    window.removeEventListener('scroll', pop.place, true);
     pop = null;
     if (refocus && anchor.isConnected) anchor.focus();
   }
 
+  /** Show el next to anchor, following it as the page scrolls. Clicking the anchor again, outside or Escape closes it. */
+  function openPop(anchor, el) {
+    if (pop && pop.anchor === anchor) return closePop(true);
+    closePop();
+    document.body.appendChild(el);
+    function place() {
+      var r = anchor.getBoundingClientRect();
+      if (!anchor.isConnected || r.bottom < 0 || r.top > window.innerHeight) return closePop();
+      var top = r.bottom + 8;
+      if (top + el.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - 8 - el.offsetHeight);
+      el.style.left = Math.max(8, Math.min(window.innerWidth - el.offsetWidth - 8, r.left + r.width / 2 - el.offsetWidth / 2)) + 'px';
+      el.style.top = top + 'px';
+    }
+    place();
+    pop = {
+      el: el,
+      anchor: anchor,
+      outside: function (e) { if (!el.contains(e.target) && !anchor.contains(e.target)) closePop(); },
+      key: function (e) {
+        if (e.key !== 'Escape') return;
+        e.stopPropagation();
+        closePop(true);
+      },
+      place: place
+    };
+    document.addEventListener('pointerdown', pop.outside, true);
+    document.addEventListener('keydown', pop.key, true);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    (el.querySelector('[aria-pressed="true"]') || el.querySelector('button')).focus();
+  }
+
+  /* Item colors: a small palette that opens from the item's number */
   function openColorPop(anchor, q, o) {
-    if (pop && pop.anchor === anchor) return closeColorPop(true);
-    closeColorPop();
     var el = h('div.color-pop', { role: 'group', 'aria-label': 'Item color' });
     COLORS.forEach(function (c) {
       el.appendChild(h('button.color-dot', {
@@ -462,35 +504,119 @@
         'aria-pressed': o.color === c ? 'true' : 'false',
         onclick: function () {
           o.color = c;
-          closeColorPop();
+          closePop();
           focusKey = q.key;
           changed();
           renderQuestions('[data-key="' + o.key + '"] .opt-num');
         }
       }));
     });
-    document.body.appendChild(el);
-    var r = anchor.getBoundingClientRect();
-    var top = r.bottom + 8;
-    if (top + el.offsetHeight > window.innerHeight - 8) top = r.top - 8 - el.offsetHeight;
-    el.style.left = Math.max(8, Math.min(window.innerWidth - el.offsetWidth - 8, r.left + r.width / 2 - el.offsetWidth / 2)) + 'px';
-    el.style.top = top + 'px';
-    pop = {
-      el: el,
-      anchor: anchor,
-      outside: function (e) { if (!el.contains(e.target) && !anchor.contains(e.target)) closeColorPop(); },
-      key: function (e) {
-        if (e.key !== 'Escape') return;
-        e.stopPropagation();
-        closeColorPop(true);
+    openPop(anchor, el);
+  }
+
+  /* ---------- Merging one question into another ---------- */
+
+  function filledOption(o) {
+    return !!(o.label.trim() || o.image);
+  }
+
+  /** Two options are the same when their text (ignoring case and spaces) and picture match. */
+  function sameOption(a, b) {
+    return a.label.trim().toLowerCase() === b.label.trim().toLowerCase() && (a.image || null) === (b.image || null);
+  }
+
+  function qName(q) {
+    var i = state.questions.indexOf(q);
+    return q.title.trim() || 'Question ' + (i + 1);
+  }
+
+  /** "Merge Question 2 into…" with the other questions to pick from. */
+  function openMergePop(anchor, source) {
+    var el = h('div.merge-pop', { role: 'menu', 'aria-label': 'Merge into' },
+      h('div.merge-pop-title', { text: 'Merge question ' + (state.questions.indexOf(source) + 1) + ' into…' }));
+    state.questions.forEach(function (t, ti) {
+      if (t === source) return;
+      el.appendChild(h('button.merge-pop-item', {
+        type: 'button', role: 'menuitem', 'data-color': t.settings.color,
+        onclick: function () {
+          closePop();
+          mergeInto(source, t);
+        }
       },
-      close: function () { closeColorPop(); }
+        h('span.qcard-badge', { text: String(ti + 1) }),
+        h('span.merge-pop-name', { dir: 'auto', text: qName(t) }),
+        t.type === 'ranking' ? h('span.merge-pop-type', { text: 'Ranking' }) : null));
+    });
+    el.appendChild(h('p.merge-pop-note', { text: 'Its options move there. Ones with the same name are combined.' }));
+    openPop(anchor, el);
+  }
+
+  /**
+   * Move source's options to the end of target and remove source. Options with
+   * the same name and picture combine: the target keeps its own and remembers the
+   * other, so the server can add up their votes. Nothing is saved until Save.
+   */
+  function mergeInto(source, target) {
+    if (source.options.concat(target.options).some(function (o) { return o.uploading; })) {
+      GM.toast('Wait for the images to finish uploading.', 'error');
+      return;
+    }
+    var keep = target.options.filter(filledOption);
+    var moving = [];
+    var twins = [];
+    source.options.filter(filledOption).forEach(function (o) {
+      var twin = keep.filter(function (t) { return sameOption(t, o); })[0];
+      if (twin) twins.push([twin, o]);
+      else moving.push(o);
+    });
+    var word = target.type === 'ranking' ? 'items' : 'options';
+    if (keep.length + moving.length > MAX_OPTIONS) {
+      GM.toast(qName(target) + ' can have up to ' + MAX_OPTIONS + ' ' + word + '. Remove some first.', 'error');
+      return;
+    }
+
+    var go = function () {
+      var before = JSON.stringify({ questions: state.questions, focusKey: focusKey });
+      twins.forEach(function (pair) {
+        pair[0].merge = pair[0].merge.concat(pair[1].id ? [pair[1].id] : [], pair[1].merge);
+      });
+      target.options = keep;
+      moving.forEach(function (o) {
+        if (target.type === 'ranking' && !o.color) o.color = nextColor(target);
+        o.isNew = true;
+        target.options.push(o);
+      });
+      while (target.options.length < 2) target.options.push(makeOption());
+      state.questions.splice(state.questions.indexOf(source), 1);
+      focusKey = target.key;
+      changed();
+      renderQuestions();
+      var card = qList.querySelector('[data-key="' + target.key + '"]');
+      if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      var parts = [];
+      if (moving.length) parts.push(moving.length + ' added');
+      if (twins.length) parts.push(twins.length + ' combined');
+      GM.toast('Merged into ' + qName(target) + (parts.length ? ' · ' + parts.join(', ') : ''), 'success', {
+        label: 'Undo',
+        onClick: function () {
+          var saved = JSON.parse(before);
+          state.questions = saved.questions;
+          focusKey = saved.focusKey;
+          changed();
+          renderQuestions();
+        }
+      });
     };
-    document.addEventListener('pointerdown', pop.outside, true);
-    document.addEventListener('keydown', pop.key, true);
-    window.addEventListener('resize', pop.close);
-    window.addEventListener('scroll', pop.close, true);
-    (el.querySelector('[aria-pressed="true"]') || el.firstChild).focus();
+
+    // Votes come along only from a vote into a vote; ranking places can't be combined.
+    var votesKept = source.savedType === 'poll' && target.type === 'poll' && (!target.savedType || target.savedType === 'poll');
+    if (!source.id || !existing || !existing.votes || votesKept) return go();
+    GM.confirm({
+      title: 'Merge the two questions?',
+      message: 'Answers given to “' + qName(source) + '” are removed when you save. Votes only carry over from one vote question to another.',
+      confirmLabel: 'Merge'
+    }).then(function (ok) { if (ok) go(); });
   }
 
   /* Drag to reorder options within a question (mouse, pen and touch) */
@@ -744,7 +870,7 @@
           settings: q.settings,
           options: q.options
             .filter(function (o) { return o.label.trim() || o.image; })
-            .map(function (o) { return { id: o.id, label: o.label, image: o.image, color: o.color }; })
+            .map(function (o) { return { id: o.id, label: o.label, image: o.image, color: o.color, merge: o.merge }; })
         };
       })
     };

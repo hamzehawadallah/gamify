@@ -4843,3 +4843,95 @@ details.disclosure[open] .pp-help .steps {
   height: 36px;
   border-radius: var(--r-xs);
 }
+
+/* ---------- Editor: merging a question into another ---------- */
+
+.merge-pop {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  gap: 2px;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
+  border-radius: var(--r-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  animation: fade-in 0.15s var(--ease) both;
+}
+
+.merge-pop-title {
+  padding: 6px 10px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+}
+
+.merge-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  text-align: start;
+  font-size: 15px;
+  font-weight: 560;
+  color: var(--label);
+}
+
+.merge-pop-item:hover,
+.merge-pop-item:focus-visible {
+  outline: none;
+  background: var(--fill-2);
+}
+
+.merge-pop-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.merge-pop-type {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+  background: var(--fill);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label-2);
+}
+
+.merge-pop-note {
+  padding: 8px 10px 4px;
+  border-top: 1px solid var(--sep);
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--label-3);
+}
+
+/* A toast with an action, e.g. "Undo" */
+.toast-action {
+  flex: none;
+  margin: -6px -8px -6px 6px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  pointer-events: auto;
+}
+
+.toast-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+}

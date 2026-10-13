@@ -188,16 +188,29 @@
 
   /* ---------- Feedback ---------- */
 
-  GM.toast = function (message, tone) {
+  /** action (optional): { label, onClick } shows a button, e.g. "Undo", and keeps the toast up longer. */
+  GM.toast = function (message, tone, action) {
     var host = document.querySelector('.toast-host');
     if (!host) return;
     var iconName = tone === 'error' ? 'alert' : 'check';
     var t = GM.h('div.toast' + (tone ? '.is-' + tone : ''), { role: 'status' }, GM.icon(iconName), GM.h('span', { text: message }));
-    host.appendChild(t);
-    setTimeout(function () {
+    var timer = setTimeout(dismiss, action ? 7000 : tone === 'error' ? 4200 : 2200);
+    function dismiss() {
+      clearTimeout(timer);
+      if (t.classList.contains('is-leaving')) return;
       t.classList.add('is-leaving');
       setTimeout(function () { t.remove(); }, 260);
-    }, tone === 'error' ? 4200 : 2200);
+    }
+    if (action) {
+      t.appendChild(GM.h('button.toast-action', {
+        type: 'button', text: action.label,
+        onclick: function () {
+          dismiss();
+          action.onClick();
+        }
+      }));
+    }
+    host.appendChild(t);
   };
 
   GM.copy = function (text) {
