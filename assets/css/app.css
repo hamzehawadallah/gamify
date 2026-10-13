@@ -1115,7 +1115,8 @@ button {
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top) + 16px) 20px 0;
+  --shell-top: calc(env(safe-area-inset-top) + 16px);
+  padding: var(--shell-top) 20px 0;
 }
 
 /* The foot of the page: who is answering (tap to change) and the logo. */
@@ -1292,14 +1293,15 @@ button {
 
 .p-title {
   margin-top: 10px;
-  font-size: clamp(27px, 7.4vw, 36px);
-  line-height: 1.1;
+  font-size: clamp(25px, 6.9vw, 30px);
+  line-height: 1.15;
   overflow-wrap: anywhere;
 }
 
 .p-desc {
   margin-top: 10px;
-  font-size: 17px;
+  font-size: 16px;
+  line-height: 1.45;
   color: var(--label-2);
   white-space: pre-line;
 }
@@ -1496,7 +1498,7 @@ button {
 }
 
 .p-name .p-title {
-  font-size: clamp(32px, 9vw, 42px);
+  font-size: clamp(27px, 7.4vw, 32px);
 }
 
 .p-name-avatar {
@@ -2795,10 +2797,11 @@ button {
 }
 
 .phone-screen .p-shell {
+  --shell-top: 18px;
   min-height: 100%;
   height: 100%;
   overflow-y: auto;
-  padding-top: 18px;
+  padding-top: var(--shell-top);
   scrollbar-width: none;
 }
 
@@ -2815,7 +2818,17 @@ button {
 }
 
 .phone-screen .p-title {
-  font-size: 25px;
+  font-size: 24px;
+}
+
+.phone-screen .p-intro {
+  margin: calc(var(--shell-top) * -1) -20px 0;
+  padding: calc(var(--shell-top) + 26px) 20px 20px;
+  border-radius: 0 0 20px 20px;
+}
+
+.phone-screen .p-intro-title {
+  font-size: 17px;
 }
 
 .phone-screen .p-actions {
@@ -3655,27 +3668,40 @@ details.disclosure[open] .steps {
 
 /* ---------- Participant: the question screen ---------- */
 
-/* The activity as the page's header: its title, instructions and progress,
-   ruled off from the question below. Quieter than the question on purpose. */
+/* The activity as the page's header: a charcoal band running edge to edge
+   from the top, with its title, instructions and progress in white. */
 .p-intro {
   display: grid;
-  gap: 4px;
-  padding: 2px 0 18px;
-  border-bottom: 1px solid var(--sep-strong);
+  gap: 6px;
+  margin: calc(var(--shell-top) * -1) -20px 0;
+  padding: calc(var(--shell-top) + 8px) 20px 22px;
+  border-radius: 0 0 22px 22px;
+  background: #262628;
+  color: #fff;
+}
+
+/* Wide screens: a rounded panel instead of a band. */
+@media (min-width: 620px) {
+  .p-intro {
+    margin: 0;
+    padding: 22px 24px 24px;
+    border-radius: 22px;
+  }
 }
 
 .p-intro-title {
-  font-size: 15px;
+  font-family: var(--font-display);
+  font-size: 19px;
   font-weight: 650;
-  line-height: 1.4;
-  color: var(--label);
+  line-height: 1.3;
+  letter-spacing: -0.012em;
   overflow-wrap: anywhere;
 }
 
 .p-intro-desc {
   font-size: 15px;
   line-height: 1.45;
-  color: var(--label-2);
+  color: rgba(255, 255, 255, 0.74);
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
@@ -3691,17 +3717,11 @@ details.disclosure[open] .steps {
   margin-top: 0;
 }
 
-/* With several questions the progress bar itself ends the header. */
-.p-intro.has-progress {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
 .p-progress-bars span {
   flex: 1;
   height: 4px;
   border-radius: 2px;
-  background: var(--fill);
+  background: rgba(255, 255, 255, 0.16);
   transition: background-color 0.3s var(--ease), opacity 0.3s var(--ease);
 }
 
@@ -3710,13 +3730,20 @@ details.disclosure[open] .steps {
   background: var(--q);
 }
 
-.p-progress-bars span.is-current {
-  opacity: 0.45;
+/* Charcoal would vanish on the charcoal band. */
+.p-progress-bars span[data-color="charcoal"].is-done,
+.p-progress-bars span[data-color="charcoal"].is-current {
+  background: #fff;
+}
+
+/* "You are here": the current question in full color, finished ones dimmer. */
+.p-progress-bars span.is-done {
+  opacity: 0.5;
 }
 
 /* The question: a colored "Question 2 of 3" label, its title and description. */
 .p-qhead {
-  margin-top: 26px;
+  margin-top: 28px;
 }
 
 .p-qhead:first-child {
@@ -3749,7 +3776,6 @@ details.disclosure[open] .steps {
 
 .p-qhead .p-desc {
   margin-top: 8px;
-  line-height: 1.45;
 }
 
 [data-color] .opt[aria-checked="true"] {
