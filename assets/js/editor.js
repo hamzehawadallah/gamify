@@ -142,12 +142,13 @@
     down.disabled = qi === n - 1;
     var del = h('button.btn.btn-icon.btn-sm.btn-plain.btn-del', { type: 'button', title: 'Delete question', 'aria-label': 'Delete question', onclick: function () { removeQ(q); } }, GM.icon('trash'));
     del.disabled = n <= 1;
-    var merge = h('button.btn.btn-icon.btn-sm.btn-plain', {
-      type: 'button', title: 'Merge into another question', 'aria-haspopup': 'menu',
+    var merge = h('button.btn.btn-sm.btn-plain.qcard-merge', {
+      type: 'button', 'aria-haspopup': 'menu',
+      title: n < 2 ? 'Add another question to merge this one into' : 'Merge into another question',
       'aria-label': 'Merge question ' + (qi + 1) + ' into another question',
       onclick: function () { openMergePop(merge, q); }
-    }, GM.icon('merge'));
-    merge.hidden = n < 2;
+    }, GM.icon('merge'), h('span', { text: 'Merge' }));
+    merge.disabled = n < 2;
 
     card.appendChild(h('div.qcard-head', null,
       h('span.qcard-badge', { text: String(qi + 1) }),

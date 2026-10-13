@@ -4935,3 +4935,33 @@ details.disclosure[open] .pp-help .steps {
 .toast-action:hover {
   background: rgba(255, 255, 255, 0.12);
 }
+
+/* The question's "Merge" button, labelled so it is easy to find. */
+.qcard-tools .qcard-merge {
+  gap: 5px;
+  padding: 0 10px 0 8px;
+  color: var(--label-2);
+}
+
+.qcard-merge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.qcard-label {
+  white-space: nowrap;
+}
+
+/* Narrow screens: the color dots get their own line so the buttons stay in view. */
+@media (max-width: 560px) {
+  .qcard-head {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .qcard-head .color-dots {
+    order: 3;
+    flex-basis: 100%;
+    margin-inline-start: 0;
+  }
+}
