@@ -24,7 +24,7 @@
   };
 
   var shell = document.getElementById('app');
-  var top = shell.querySelector('.p-top');
+  var foot = shell.querySelector('.p-foot');
   var main = shell.querySelector('.p-main');
   var resultViews = [];
   var pollTimer = null;
@@ -117,15 +117,17 @@
 
   /* ---------- Rendering ---------- */
 
-  function renderTop() {
-    var chip = top.querySelector('.me-chip');
+  /** Who is answering, at the foot of the page: tap to change name or persona. */
+  function renderFoot() {
+    var chip = foot.querySelector('.me-chip');
     if (chip) chip.remove();
     if (!state.me) return;
-    chip = h('button.me-chip', { type: 'button', 'aria-label': 'Signed in as ' + state.me.name + '. Change name or persona' },
+    chip = h('button.me-chip', { type: 'button', 'aria-label': 'Answering as ' + state.me.name + '. Change name or persona' },
       GM.avatar(state.me.name, state.me.emoji),
-      h('span', { text: state.me.name }));
+      h('span.me-chip-name', { dir: 'auto', text: state.me.name }),
+      h('span.me-chip-change', { text: 'Change' }));
     chip.addEventListener('click', openNameSheet);
-    top.appendChild(chip);
+    foot.insertBefore(chip, foot.firstChild);
   }
 
   function currentView() {
@@ -141,7 +143,7 @@
   }
 
   function render() {
-    renderTop();
+    renderFoot();
     var view = currentView();
     state.view = view;
     resultViews = [];
@@ -155,6 +157,7 @@
     else if (view === 'done') renderDone();
     else if (view === 'empty') renderState('clock', 'Almost ready', 'The trainer is still setting this activity up. Keep this page open.');
     else if (view === 'closed') renderState('lock', 'Voting is closed', 'This activity isn’t taking votes right now. Keep this page open — it updates when voting opens.');
+    shell.classList.toggle('has-actions', !!document.querySelector('.p-actions'));
     window.scrollTo(0, 0);
     schedulePoll();
   }
@@ -311,11 +314,11 @@
     });
 
     main.appendChild(h('section.p-view.p-name', null,
+      // The activity they're joining, in the same header as its questions.
+      state.activity ? h('header.p-intro', null, h('div.p-intro-title', { dir: 'auto', text: state.activity.title })) : null,
       picker.el,
       h('h1.p-title', { text: returning ? 'Pick your persona' : 'What’s your name?' }),
-      returning
-        ? h('p.p-desc', { text: 'Each persona belongs to one person. One is picked for you above; tap another to change it.' })
-        : state.activity ? h('p.p-desc', { dir: 'auto', text: state.activity.title }) : null,
+      returning ? h('p.p-desc', { text: 'Each persona belongs to one person. One is picked for you above; tap another to change it.' }) : null,
       form));
     if (!returning) setTimeout(function () { if (!input.value) input.focus(); }, 350);
   }
@@ -363,25 +366,19 @@
       : GM.Poll.options(q, state.selected, onPick, { disabled: locked });
     syncButton();
 
-    var view = h('section.p-view', { 'data-color': q.color || 'red' });
-    var titleText = qTitle(q, i);
-    if (multi || a.title !== titleText) {
-      view.appendChild(h('div.p-activity', null, h('span', { dir: 'auto', text: a.title })));
-    }
-    if (multi && i === 0 && a.description) {
-      view.appendChild(h('p.p-activity-desc', { dir: 'auto', text: a.description }));
-    }
-    if (multi) {
-      var bars = h('div.p-progress-bars', { 'aria-hidden': 'true' });
-      qs.forEach(function (qq, k) {
-        bars.appendChild(h('span' + (k === i ? '.is-current' : answered(qq) ? '.is-done' : '')));
-      });
-      view.appendChild(h('div.p-progress', null, bars, h('span.p-progress-count', { text: (i + 1) + ' of ' + qs.length })));
-    }
-    view.appendChild(h('h1.p-title', { dir: 'auto', text: titleText }));
-    if (!multi && a.description) view.appendChild(h('p.p-desc', { dir: 'auto', text: a.description }));
-    if (q.description) view.appendChild(h('p.p-desc', { dir: 'auto', text: q.description }));
-    if (!ranking) view.appendChild(h('p.p-hint', { text: GM.Poll.hint(q.settings) }));
+    // The activity's panel (its instructions on the first question), then the question.
+    var view = h('section.p-view', { 'data-color': q.color || 'red' }, GM.Poll.screenHead({
+      activityTitle: a.title,
+      activityDesc: i === 0 ? a.description : '',
+      title: qTitle(q, i),
+      description: q.description,
+      index: i,
+      total: qs.length,
+      progress: qs.map(function (qq, k) {
+        return { state: k === i ? 'current' : answered(qq) ? 'done' : '', color: qq.color };
+      })
+    }));
+    if (!ranking) view.appendChild(GM.Poll.hintRow(GM.Poll.hint(q.settings)));
     view.appendChild(opts);
     if (locked) view.appendChild(h('p.p-locked', null, GM.icon('lock'), 'You’ve answered this one. Answers can’t be changed for this activity.'));
     main.appendChild(view);
@@ -576,7 +573,7 @@
       saveMe(input.value, picker, err)
         .then(function () {
           close();
-          renderTop();
+          renderFoot();
           GM.toast('Saved', 'success');
         })
         .catch(function () { GM.busy(save, false); });

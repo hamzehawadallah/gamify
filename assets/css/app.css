@@ -1115,34 +1115,47 @@ button {
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: env(safe-area-inset-top) 20px 0;
+  padding: calc(env(safe-area-inset-top) + 16px) 20px 0;
 }
 
-.p-top {
+/* The foot of the page: who is answering (tap to change) and the logo. */
+.p-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  height: 60px;
+  margin-top: 8px;
+  padding: 14px 0 calc(20px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--sep);
 }
 
-.p-top .brand-logo {
-  height: 32px;
+/* Room for the fixed Submit bar, so the footer is never hidden under it. */
+.p-shell.has-actions .p-foot {
+  padding-bottom: calc(136px + env(safe-area-inset-bottom));
+}
+
+.p-foot .brand {
+  margin-inline-start: auto;
+}
+
+.p-foot .brand-logo {
+  height: 26px;
 }
 
 .me-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  max-width: 60%;
-  height: 36px;
-  padding: 0 12px 0 4px;
+  min-width: 0;
+  max-width: 72%;
+  height: 40px;
+  margin-inline-start: -6px;
+  padding: 0 12px 0 5px;
   border: 0;
   border-radius: 999px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--border);
-  font-size: 15px;
+  background: transparent;
+  font-size: 14px;
   font-weight: 560;
+  color: var(--label);
   transition: background-color 0.15s;
 }
 
@@ -1151,13 +1164,32 @@ button {
 }
 
 .me-chip .avatar {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  flex: none;
   font-size: 11px;
 }
 
 .me-chip .avatar.is-persona {
-  font-size: 17px;
+  font-size: 18px;
+}
+
+.me-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.me-chip-change {
+  flex: none;
+  color: var(--label-3);
+  font-weight: 500;
+}
+
+.me-chip-change::before {
+  content: "·";
+  margin-inline-end: 8px;
 }
 
 /* Persona picker: a row of emoji that scrolls sideways, edge to edge. */
@@ -1233,7 +1265,7 @@ button {
 
 .p-main {
   flex: 1;
-  padding: 14px 0 140px;
+  padding: 0 0 32px;
 }
 
 .p-view {
@@ -1273,10 +1305,20 @@ button {
 }
 
 .p-hint {
-  margin: 26px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 28px 0 12px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 560;
   color: var(--label-2);
+}
+
+.p-hint svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--q-text);
 }
 
 /* Options */
@@ -1449,8 +1491,8 @@ button {
 }
 
 /* Name step */
-.p-name {
-  padding-top: 3vh;
+.p-name .p-intro {
+  margin-bottom: 22px;
 }
 
 .p-name .p-title {
@@ -2765,7 +2807,11 @@ button {
 }
 
 .phone-screen .p-main {
-  padding-bottom: 30px;
+  padding-bottom: 24px;
+}
+
+.phone-screen .p-shell.has-actions .p-foot {
+  padding-bottom: 16px;
 }
 
 .phone-screen .p-title {
@@ -3607,55 +3653,56 @@ details.disclosure[open] .steps {
   color: var(--label-2);
 }
 
-/* ---------- Participant stepper ---------- */
+/* ---------- Participant: the question screen ---------- */
 
-.p-activity {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--label-2);
+/* The activity as the page's header: its title, instructions and progress,
+   ruled off from the question below. Quieter than the question on purpose. */
+.p-intro {
+  display: grid;
+  gap: 4px;
+  padding: 2px 0 18px;
+  border-bottom: 1px solid var(--sep-strong);
 }
 
-.p-activity svg {
-  display: none;
+.p-intro-title {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--label);
+  overflow-wrap: anywhere;
 }
 
-.p-activity span {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.p-activity-desc {
-  margin-top: 4px;
+.p-intro-desc {
   font-size: 15px;
   line-height: 1.45;
   color: var(--label-2);
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
-.p-progress {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 16px;
-}
-
+/* One segment per question, each in its question's color once answered. */
 .p-progress-bars {
   display: flex;
-  flex: 1;
   gap: 4px;
+  margin-top: 12px;
+}
+
+.p-progress-bars:first-child {
+  margin-top: 0;
+}
+
+/* With several questions the progress bar itself ends the header. */
+.p-intro.has-progress {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .p-progress-bars span {
   flex: 1;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
   background: var(--fill);
-  transition: background-color 0.3s var(--ease);
+  transition: background-color 0.3s var(--ease), opacity 0.3s var(--ease);
 }
 
 .p-progress-bars span.is-done,
@@ -3664,35 +3711,45 @@ details.disclosure[open] .steps {
 }
 
 .p-progress-bars span.is-current {
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
-.p-progress-count {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--label-3);
-  font-variant-numeric: tabular-nums;
+/* The question: a colored "Question 2 of 3" label, its title and description. */
+.p-qhead {
+  margin-top: 26px;
 }
 
-.p-qtag {
-  display: inline-flex;
+.p-qhead:first-child {
+  margin-top: 6px;
+}
+
+.p-eyebrow {
+  display: flex;
   align-items: center;
-  gap: 7px;
-  margin-top: 18px;
-  padding: 4px 9px 4px 8px;
-  border-radius: var(--r-xs);
-  background: var(--q-soft);
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--q-text);
-  font-size: 13px;
-  font-weight: 650;
 }
 
-.p-qtag::before {
+.p-eyebrow::before {
   content: "";
   width: 8px;
   height: 8px;
+  flex: none;
   border-radius: 50%;
   background: var(--q);
+}
+
+.p-qhead .p-title {
+  margin-top: 8px;
+}
+
+.p-qhead .p-desc {
+  margin-top: 8px;
+  line-height: 1.45;
 }
 
 [data-color] .opt[aria-checked="true"] {
