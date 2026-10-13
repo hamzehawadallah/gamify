@@ -773,17 +773,18 @@
     });
     submit.disabled = !ranking && !sel.length;
 
-    var view = h('section.p-view', { 'data-color': q.settings.color });
-    if (multi || qTitle !== activityTitle) view.appendChild(h('div.p-activity', null, h('span', { text: activityTitle })));
-    if (multi && qi === 0 && state.description.trim()) view.appendChild(h('p.p-activity-desc', { dir: 'auto', text: state.description.trim() }));
-    if (multi) {
-      var bars = h('div.p-progress-bars');
-      qs.forEach(function (x, k) { bars.appendChild(h('span' + (k === qi ? '.is-current' : k < qi ? '.is-done' : ''))); });
-      view.appendChild(h('div.p-progress', null, bars, h('span.p-progress-count', { text: (qi + 1) + ' of ' + qs.length })));
-    }
-    view.appendChild(h('h1.p-title', { dir: 'auto', text: qTitle }));
-    if (!multi && state.description.trim()) view.appendChild(h('p.p-desc', { dir: 'auto', text: state.description.trim() }));
-    if (q.description.trim()) view.appendChild(h('p.p-desc', { dir: 'auto', text: q.description.trim() }));
+    // Same header as on phones: the activity's panel, then the question.
+    var view = h('section.p-view', { 'data-color': q.settings.color }, GM.Poll.screenHead({
+      activityTitle: activityTitle,
+      activityDesc: qi === 0 ? state.description.trim() : '',
+      title: qTitle,
+      description: q.description.trim(),
+      index: qi,
+      total: qs.length,
+      progress: qs.map(function (x, k) {
+        return { state: k === qi ? 'current' : k < qi ? 'done' : '', color: x.settings.color };
+      })
+    }));
     if (ranking) {
       // The editor's order, until someone drags in the preview.
       var keys = q.options.map(function (o) { return o.key; });
@@ -792,7 +793,7 @@
       view.appendChild(GM.Rank.list(question, dragged.order, function (order) { dragged.order = order; }, { demo: !previewDemo[q.key] }));
       previewDemo[q.key] = true;
     } else {
-      view.appendChild(h('p.p-hint', { text: GM.Poll.hint(q.settings) }));
+      view.appendChild(GM.Poll.hintRow(GM.Poll.hint(q.settings)));
       view.appendChild(GM.Poll.options(question, sel, function (s) {
         previewSelected[q.key] = s;
         submit.disabled = !s.length;
@@ -801,11 +802,14 @@
 
     var scroll = preview.querySelector('.p-shell');
     var scrollTop = scroll ? scroll.scrollTop : 0;
-    var shell = h('div.p-shell', { 'aria-hidden': 'true' },
-      h('header.p-top', null,
-        h('span.brand', null, h('img.brand-logo', { src: document.querySelector('.nav .brand-logo').src, alt: '' })),
-        h('span.me-chip', null, GM.avatar('Alex Morgan', '\uD83D\uDC69\u200D\uD83D\uDCBC'), h('span', { text: 'Alex' }))),
+    var shell = h('div.p-shell.has-actions', { 'aria-hidden': 'true' },
       h('main.p-main', null, view),
+      h('footer.p-foot', null,
+        h('span.me-chip', null,
+          GM.avatar('Alex Morgan', '\uD83D\uDC69\u200D\uD83D\uDCBC'),
+          h('span.me-chip-name', { text: 'Alex Morgan' }),
+          h('span.me-chip-change', { text: 'Change' })),
+        h('span.brand', null, h('img.brand-logo', { src: document.querySelector('.nav .brand-logo').src, alt: '' }))),
       h('div.p-actions', null, h('div.p-actions-inner', null, submit)));
 
     preview.innerHTML = '';
