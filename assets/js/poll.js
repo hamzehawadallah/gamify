@@ -34,7 +34,7 @@
     var showTitle = !!o.activityTitle && o.activityTitle !== o.title;
     var intro = null;
     if (showTitle || o.activityDesc || multi) {
-      intro = h('header.p-intro' + (multi ? '.has-progress' : ''), null,
+      intro = h('header.p-intro', null,
         showTitle ? h('div.p-intro-title', { dir: 'auto', text: o.activityTitle }) : null,
         o.activityDesc ? h('p.p-intro-desc', { dir: 'auto', text: o.activityDesc }) : null);
       if (multi) {
