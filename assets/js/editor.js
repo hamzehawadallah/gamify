@@ -1,5 +1,6 @@
-/* Activity editor: title and instructions, one or more questions (each with a
-   color, options with images, drag to reorder), settings and a live phone preview. */
+/* Activity editor: title and instructions, one or more questions (each a vote or
+   a ranking, with a color, options or items with images, drag to reorder),
+   settings and a live phone preview. */
 (function () {
   'use strict';
 
@@ -17,7 +18,7 @@
 
   function makeOption(o) {
     o = o || {};
-    return { key: uid(), id: o.id || null, label: o.label || '', image: o.image || null, imageUrl: o.image_url || null, uploading: false };
+    return { key: uid(), id: o.id || null, label: o.label || '', image: o.image || null, imageUrl: o.image_url || null, color: o.color || null, uploading: false };
   }
 
   function makeQuestion(q, position) {
@@ -26,12 +27,16 @@
     return {
       key: uid(),
       id: q.id || null,
+      type: q.type || 'poll',
       title: q.title || '',
       description: q.description || '',
       settings: {
         multiple: !!s.multiple,
         max_choices: s.max_choices || 0,
-        color: s.color || COLORS[position % COLORS.length]
+        color: s.color || COLORS[position % COLORS.length],
+        top_label: s.top_label || '',
+        bottom_label: s.bottom_label || '',
+        shuffle: s.shuffle !== false
       },
       options: (q.options && q.options.length ? q.options : [{}, {}]).map(makeOption)
     };
@@ -139,6 +144,18 @@
       dots,
       h('div.qcard-tools', null, up, down, del)));
 
+    // Type: people pick options (a vote) or drag items into order (a ranking)
+    var ranking = q.type === 'ranking';
+    var types = h('div.type-switch', { role: 'radiogroup', 'aria-label': 'Question ' + (qi + 1) + ' type' });
+    [['poll', 'poll', 'Vote'], ['ranking', 'rank', 'Ranking']].forEach(function (t) {
+      types.appendChild(h('button', {
+        type: 'button', role: 'radio', 'aria-checked': q.type === t[0] ? 'true' : 'false',
+        onclick: function () { setType(q, t[0]); }
+      }, GM.icon(t[1]), t[2]));
+    });
+    card.appendChild(h('div.qcard-type', null, types,
+      h('span.qcard-type-hint', { text: ranking ? 'People drag the items into order' : 'People pick from the options' })));
+
     // Title + description
     var title = h('input.qcard-title', {
       type: 'text', maxlength: '300', dir: 'auto', 'aria-label': 'Question ' + (qi + 1) + ' title',
@@ -154,14 +171,29 @@
     desc.addEventListener('input', function () { q.description = desc.value; changed(); });
     card.appendChild(h('div.qcard-fields', null, title, desc));
 
-    // Options
+    // Options. A ranking's items sit between what the top and the bottom of the list mean.
+    if (ranking) card.appendChild(scaleField(q, 'top_label', 'arrow-up', 'Top of the list, e.g. Most important'));
     var list = h('div.opt-editor');
     q.options.forEach(function (o, i) { list.appendChild(optionRow(q, o, i, list)); });
     card.appendChild(list);
-    var add = h('button.opt-add', { type: 'button' }, GM.icon('plus'), 'Add option');
+    var add = h('button.opt-add', { type: 'button' }, GM.icon('plus'), ranking ? 'Add item' : 'Add option');
     add.hidden = q.options.length >= MAX_OPTIONS;
     add.addEventListener('click', function () { addOption(q); });
     card.appendChild(add);
+    if (ranking) card.appendChild(scaleField(q, 'bottom_label', 'arrow-down', 'Bottom of the list, e.g. Least important'));
+
+    var foot = h('div.qcard-foot');
+    if (ranking) {
+      var shuffle = h('input.switch', { type: 'checkbox', 'aria-label': 'Shuffle the starting order for each person' });
+      shuffle.checked = q.settings.shuffle;
+      shuffle.addEventListener('change', function () {
+        q.settings.shuffle = shuffle.checked;
+        changed();
+      });
+      foot.appendChild(h('label', null, shuffle, 'Shuffle the starting order for each person'));
+      card.appendChild(foot);
+      return card;
+    }
 
     // Multiple choice
     var multi = h('input.switch', { type: 'checkbox', 'aria-label': 'Allow multiple answers' });
@@ -173,7 +205,7 @@
       changed();
       renderQuestions();
     });
-    var foot = h('div.qcard-foot', null, h('label', null, multi, 'Allow multiple answers'));
+    foot.appendChild(h('label', null, multi, 'Allow multiple answers'));
     if (q.settings.multiple) {
       var out = h('output', { text: q.settings.max_choices ? 'Up to ' + q.settings.max_choices : 'No limit' });
       var step = function (d) {
@@ -193,6 +225,48 @@
     }
     card.appendChild(foot);
     return card;
+  }
+
+  /** "Most important" / "Least important": what the two ends of a ranking mean. */
+  function scaleField(q, key, iconName, label) {
+    var input = h('input', { type: 'text', maxlength: '60', dir: 'auto', placeholder: label, 'aria-label': label });
+    input.value = q.settings[key];
+    input.addEventListener('input', function () {
+      q.settings[key] = input.value;
+      changed();
+    });
+    return h('label.rank-scale-edit', null, GM.icon(iconName), input);
+  }
+
+  /** Switch a question between a vote and a ranking. Saved answers can't carry over. */
+  function setType(q, type) {
+    if (q.type === type) return;
+    var go = function () {
+      q.type = type;
+      if (type === 'ranking') {
+        q.options.forEach(function (o) { if (!o.color) o.color = nextColor(q); });
+        if (!q.settings.top_label && !q.settings.bottom_label) {
+          q.settings.top_label = 'Most important';
+          q.settings.bottom_label = 'Least important';
+        }
+      }
+      focusKey = q.key;
+      changed();
+      renderQuestions();
+    };
+    if (!q.id || !existing || !existing.votes) return go();
+    GM.confirm({
+      title: type === 'ranking' ? 'Turn this question into a ranking?' : 'Turn this ranking into a vote?',
+      message: 'Answers already given to this question are removed when you save.',
+      confirmLabel: 'Change type'
+    }).then(function (ok) { if (ok) go(); });
+  }
+
+  /** A color no other item of this ranking uses yet, if there is one. */
+  function nextColor(q) {
+    var used = q.options.map(function (o) { return o.color; });
+    var free = COLORS.filter(function (c) { return used.indexOf(c) < 0; });
+    return free[0] || COLORS[q.options.length % COLORS.length];
   }
 
   function addQuestion() {
@@ -241,7 +315,9 @@
   /* ---------- Options ---------- */
 
   function optionRow(q, o, i, list) {
-    var row = h('div.opt-row', { 'data-key': o.key });
+    var ranking = q.type === 'ranking';
+    var word = ranking ? 'Item ' : 'Option ';
+    var row = h('div.opt-row' + (ranking ? '.has-num' : ''), { 'data-key': o.key });
     if (o.isNew) {
       row.classList.add('is-new');
       o.isNew = false;
@@ -272,8 +348,8 @@
 
     var input = h('input.opt-input', {
       type: 'text', maxlength: '300', dir: 'auto',
-      placeholder: o.image ? 'Caption (optional)' : 'Option ' + (i + 1),
-      'aria-label': 'Option ' + (i + 1)
+      placeholder: o.image ? (ranking ? 'Title (optional)' : 'Caption (optional)') : word + (i + 1),
+      'aria-label': word + (i + 1)
     });
     input.value = o.label;
     input.addEventListener('input', function () { o.label = input.value; changed(); });
@@ -293,12 +369,21 @@
     });
 
     var remove = h('button.btn.btn-icon.btn-sm.btn-plain.btn-remove', {
-      type: 'button', 'aria-label': 'Remove option ' + (i + 1), title: 'Remove option'
+      type: 'button', 'aria-label': 'Remove ' + word.toLowerCase() + (i + 1), title: 'Remove ' + word.trim().toLowerCase()
     }, GM.icon('x'));
     remove.disabled = q.options.length <= 2;
     remove.addEventListener('click', function () { removeOption(q, o); });
 
     row.appendChild(handle);
+    if (ranking) {
+      // The item's place, in its color. Tap it to pick another color.
+      var num = h('button.opt-num', {
+        type: 'button', 'data-color': o.color, text: String(i + 1), title: 'Change color',
+        'aria-label': 'Item ' + (i + 1) + ' color: ' + o.color + '. Change color', 'aria-haspopup': 'true'
+      });
+      num.addEventListener('click', function () { openColorPop(num, q, o); });
+      row.appendChild(num);
+    }
     row.appendChild(slot);
     if (o.image) {
       row.appendChild(h('button.img-remove', {
@@ -325,6 +410,7 @@
     if (q.options.length >= MAX_OPTIONS) return;
     var o = makeOption();
     o.isNew = true;
+    if (q.type === 'ranking') o.color = nextColor(q);
     q.options.push(o);
     focusKey = q.key;
     changed();
@@ -349,6 +435,62 @@
     renderQuestions();
     var handle = qList.querySelector('[data-key="' + o.key + '"] .drag-handle');
     if (handle) handle.focus();
+  }
+
+  /* Item colors: a small palette that opens from the item's number */
+  var pop = null;
+
+  function closeColorPop(refocus) {
+    if (!pop) return;
+    var anchor = pop.anchor;
+    pop.el.remove();
+    document.removeEventListener('pointerdown', pop.outside, true);
+    document.removeEventListener('keydown', pop.key, true);
+    window.removeEventListener('resize', pop.close);
+    window.removeEventListener('scroll', pop.close, true);
+    pop = null;
+    if (refocus && anchor.isConnected) anchor.focus();
+  }
+
+  function openColorPop(anchor, q, o) {
+    if (pop && pop.anchor === anchor) return closeColorPop(true);
+    closeColorPop();
+    var el = h('div.color-pop', { role: 'group', 'aria-label': 'Item color' });
+    COLORS.forEach(function (c) {
+      el.appendChild(h('button.color-dot', {
+        type: 'button', 'data-color': c, title: c, 'aria-label': c + ' color',
+        'aria-pressed': o.color === c ? 'true' : 'false',
+        onclick: function () {
+          o.color = c;
+          closeColorPop();
+          focusKey = q.key;
+          changed();
+          renderQuestions('[data-key="' + o.key + '"] .opt-num');
+        }
+      }));
+    });
+    document.body.appendChild(el);
+    var r = anchor.getBoundingClientRect();
+    var top = r.bottom + 8;
+    if (top + el.offsetHeight > window.innerHeight - 8) top = r.top - 8 - el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(window.innerWidth - el.offsetWidth - 8, r.left + r.width / 2 - el.offsetWidth / 2)) + 'px';
+    el.style.top = top + 'px';
+    pop = {
+      el: el,
+      anchor: anchor,
+      outside: function (e) { if (!el.contains(e.target) && !anchor.contains(e.target)) closeColorPop(); },
+      key: function (e) {
+        if (e.key !== 'Escape') return;
+        e.stopPropagation();
+        closeColorPop(true);
+      },
+      close: function () { closeColorPop(); }
+    };
+    document.addEventListener('pointerdown', pop.outside, true);
+    document.addEventListener('keydown', pop.key, true);
+    window.addEventListener('resize', pop.close);
+    window.addEventListener('scroll', pop.close, true);
+    (el.querySelector('[aria-pressed="true"]') || el.firstChild).focus();
   }
 
   /* Drag to reorder options within a question (mouse, pen and touch) */
@@ -480,21 +622,29 @@
   }
 
   var previewSelected = {};
+  var previewRanks = {};  // per question: the order dragged in the preview, until the items change
+  var previewDemo = {};   // the "drag me" hand plays once per question
   function renderPreview() {
     var qs = state.questions;
     var qi = Math.max(0, qs.indexOf(findQ(focusKey)));
     var q = qs[qi];
+    var ranking = q.type === 'ranking';
     var multi = qs.length > 1;
     var activityTitle = state.title.trim() || 'Your activity';
     var qTitle = q.title.trim() || (multi ? 'Question ' + (qi + 1) : activityTitle);
     var question = {
       title: qTitle,
       settings: q.settings,
-      options: q.options.map(function (o, i) { return { id: i + 1, label: o.label.trim(), image: o.imageUrl }; })
+      options: q.options.map(function (o, i) {
+        return { id: ranking ? o.key : i + 1, label: o.label.trim(), image: o.imageUrl, color: o.color };
+      })
     };
     var sel = (previewSelected[q.key] || []).filter(function (id) { return id <= question.options.length; });
-    var submit = h('button.btn.btn-primary.btn-lg.btn-block', { type: 'button', text: multi && qi < qs.length - 1 ? 'Next' : 'Submit', tabindex: '-1' });
-    submit.disabled = !sel.length;
+    var submit = h('button.btn.btn-primary.btn-lg.btn-block', {
+      type: 'button', tabindex: '-1',
+      text: multi && qi < qs.length - 1 ? 'Next' : ranking && !multi ? 'Submit ranking' : 'Submit'
+    });
+    submit.disabled = !ranking && !sel.length;
 
     var view = h('section.p-view', { 'data-color': q.settings.color });
     if (multi || qTitle !== activityTitle) view.appendChild(h('div.p-activity', null, h('span', { text: activityTitle })));
@@ -507,11 +657,20 @@
     view.appendChild(h('h1.p-title', { dir: 'auto', text: qTitle }));
     if (!multi && state.description.trim()) view.appendChild(h('p.p-desc', { dir: 'auto', text: state.description.trim() }));
     if (q.description.trim()) view.appendChild(h('p.p-desc', { dir: 'auto', text: q.description.trim() }));
-    view.appendChild(h('p.p-hint', { text: GM.Poll.hint(q.settings) }));
-    view.appendChild(GM.Poll.options(question, sel, function (s) {
-      previewSelected[q.key] = s;
-      submit.disabled = !s.length;
-    }));
+    if (ranking) {
+      // The editor's order, until someone drags in the preview.
+      var keys = q.options.map(function (o) { return o.key; });
+      var dragged = previewRanks[q.key];
+      if (!dragged || dragged.base !== keys.join()) dragged = previewRanks[q.key] = { base: keys.join(), order: keys };
+      view.appendChild(GM.Rank.list(question, dragged.order, function (order) { dragged.order = order; }, { demo: !previewDemo[q.key] }));
+      previewDemo[q.key] = true;
+    } else {
+      view.appendChild(h('p.p-hint', { text: GM.Poll.hint(q.settings) }));
+      view.appendChild(GM.Poll.options(question, sel, function (s) {
+        previewSelected[q.key] = s;
+        submit.disabled = !s.length;
+      }));
+    }
 
     var scroll = preview.querySelector('.p-shell');
     var scrollTop = scroll ? scroll.scrollTop : 0;
@@ -525,7 +684,7 @@
     preview.innerHTML = '';
     preview.appendChild(shell);
     shell.scrollTop = scrollTop;
-    GM.qsa('button', shell).forEach(function (b) { b.tabIndex = -1; });
+    GM.qsa('button, [tabindex]', shell).forEach(function (b) { b.tabIndex = -1; });
   }
 
   /* ---------- Save ---------- */
@@ -561,7 +720,7 @@
         return;
       }
       if (filled.length < 2) {
-        GM.toast('Question ' + (i + 1) + ' needs at least two options.', 'error');
+        GM.toast('Question ' + (i + 1) + ' needs at least two ' + (q.type === 'ranking' ? 'items.' : 'options.'), 'error');
         focusProblem(q, '[data-key="' + q.key + '"] .opt-input');
         return;
       }
@@ -579,12 +738,13 @@
       questions: state.questions.map(function (q) {
         return {
           id: q.id,
+          type: q.type,
           title: q.title,
           description: q.description,
           settings: q.settings,
           options: q.options
             .filter(function (o) { return o.label.trim() || o.image; })
-            .map(function (o) { return { id: o.id, label: o.label, image: o.image }; })
+            .map(function (o) { return { id: o.id, label: o.label, image: o.image, color: o.color }; })
         };
       })
     };

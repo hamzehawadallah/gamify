@@ -8,6 +8,7 @@ You watch the results update live on the big screen, including inside PowerPoint
 - **Personas.** Each participant picks a persona emoji from a scrolling row (people and characters only). No two people share one: everyone is offered a different free persona, held for them while they type their name, and personas in use aren't shown. The presenter screen shows them as people vote.
 - **Activities with several questions.** One QR code per activity, holding one or more questions, like a toolbox voting wall with three sections. Each question has its own title, description and color.
 - **Pictures on options.** Every question can be single or multiple choice (with an optional limit), with a picture on any option.
+- **Rankings.** Turn any question into a ranking: a list of items, each with a picture, a color and a title. Participants drag the numbered cards into the order they think fits best, e.g. from *most important* to *least important*, and the presenter shows a live leaderboard.
 - **Instant results.** New votes reach the presenter screen in well under a second.
 - **Present anywhere.** The presenter view goes straight onto your slides with VCL Gamify's own free PowerPoint add-in. It scales to any size, in light or dark.
 - **You stay in control.** Open or close voting, hide results until the reveal, clear votes, see who voted for what, and export to CSV (Excel-friendly, Arabic included).
@@ -73,7 +74,8 @@ Go to `yourdomain.com/admin` → **New activity**:
 1. Give the activity a title and, if you like, instructions for participants.
 2. Fill in the first question: a title, a short description, a color and its options. Tap the square next to an option to add a picture.
 3. Click **Add question** for each extra section (e.g. *KYKO*, *Engaging Customer Dialogue*, *Positive Persistence & Learning*).
-4. Click **Create activity**.
+4. Want people to put things in order instead? Switch the question from **Vote** to **Ranking** (see below).
+5. Click **Create activity**.
 
 The activity page gives you the QR code (download it as PNG or SVG for your slides), the join link and the presenter link.
 Participants scan once, answer each question in turn ("1 of 3", "2 of 3" …) and see a summary of their choices at the end.
@@ -115,6 +117,25 @@ During a session you control everything from the activity's admin page, e.g. on 
 **Close voting** or **Hide results** there, and the slide updates instantly.
 
 ---
+
+## Rankings
+
+Switch any question to **Ranking** in the editor. Then:
+
+- **Items.** Each item has a title, an optional picture and a color. The number next to each item is its place in your list; tap it to pick another color. Drag the handle to reorder.
+- **What the ends mean.** Above and below the items, say what the top and the bottom of the list mean. They start as *Most important* and *Least important*; change them to anything, e.g. *Most interactive* and *Least interactive*, or clear them.
+- **Shuffle.** On by default: everyone starts from their own shuffled order, so nobody just keeps the order you typed. Turn it off to start everyone from your order.
+
+On their phones, participants see numbered cards in the item colors with a grip on each one. The first time, a hand shows the gesture by moving a card down and back.
+They press and drag a card (or grab its grip) to move it; the numbers update as they go and the page scrolls when they drag to the edge. The arrow keys work too.
+
+The results are a leaderboard, best first, that rearranges itself live as rankings come in:
+
+- **Average place.** Where people put the item on average (1.0 means everyone ranked it first). Items with the same average share a place.
+- **The bar** shows the item's score: 100% if everyone put it first, 0% if everyone put it last.
+- The CSV export lists each person's order (*1. Safety; 2. Speed; …*) and, per item, the average place, the score (0–100) and how often it was ranked first.
+
+Rankings and votes can share one activity (one QR code). On the presenter wall, a ranking gets its own column next to the votes.
 
 ## How personas stay unique
 
@@ -196,8 +217,8 @@ app/
   views/               HTML templates
 assets/
   css/app.css          Design system (tokens, components, optional dark presenter theme)
-  js/                  core (helpers, live updates, QR), results, poll, participant,
-                       present, admin, activity, editor, home
+  js/                  core (helpers, live updates, QR), results, poll, rank (drag to
+                       order), participant, present, admin, activity, editor, home
   img/                 VCL Gamify logo and icons
   vendor/qrcode.js     QR generator (MIT, Kazuhiko Arase)
 uploads/               Uploaded option images

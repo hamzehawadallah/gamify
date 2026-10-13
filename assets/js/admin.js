@@ -12,7 +12,7 @@
     return h('a.a-card', { href: GM.url('admin/activity/' + a.id), style: { '--i': Math.min(i, 12) } },
       a.cover ? h('div.a-card-cover', { style: { backgroundImage: 'url("' + a.cover + '")' } }) : null,
       h('div.a-card-top', null,
-        h('span.a-card-kind', { text: GM.plural(a.question_count, 'question', 'questions') }),
+        h('span.a-card-kind', { text: a.question_count === 1 && a.ranking_count === 1 ? 'Ranking' : GM.plural(a.question_count, 'question', 'questions') }),
         status),
       h('h2.a-card-title', { dir: 'auto', text: a.title }),
       h('div.a-card-meta', null,

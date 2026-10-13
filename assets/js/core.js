@@ -267,6 +267,12 @@
     return multiple ? (n === 1 ? 'voter' : 'voters') : (n === 1 ? 'vote' : 'votes');
   };
 
+  /** Headline count for one question: "votes" (pick one), "voters" (pick several) or "people" (a ranking). */
+  GM.answerWord = function (n, q) {
+    if (q && q.type === 'ranking') return n === 1 ? 'person' : 'people';
+    return GM.voterWord(n, !!(q && q.settings && q.settings.multiple));
+  };
+
   GM.fmtCode = function (code) {
     code = String(code || '');
     return code.length === 6 ? code.slice(0, 3) + ' ' + code.slice(3) : code;

@@ -129,7 +129,7 @@
       body.appendChild(host);
       single = { key: key, results: new GM.Results(host) };
     }
-    single.results.update({ options: q.options, status: a.status }, r);
+    single.results.update({ options: q.options, status: a.status, type: q.type }, r);
   }
 
   function renderWall(p) {
@@ -171,7 +171,7 @@
       });
     }
     a.questions.forEach(function (q, i) {
-      columns.results[q.id].update({ options: q.options, status: a.status }, resultsFor(p, i));
+      columns.results[q.id].update({ options: q.options, status: a.status, type: q.type }, resultsFor(p, i));
     });
   }
 
@@ -199,7 +199,7 @@
     var voters = soloResults ? soloResults.voters : p.results.voters;
     GM.countTo(countEl, voters);
     countLabel.textContent = solo >= 0 && a.questions[solo]
-      ? GM.voterWord(voters, a.questions[solo].settings.multiple)
+      ? GM.answerWord(voters, a.questions[solo])
       : (voters === 1 ? 'person' : 'people');
     closedBadge.hidden = a.status !== 'closed';
     renderVoters(p.recent_voters || [], voters);

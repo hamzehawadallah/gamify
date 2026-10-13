@@ -78,8 +78,8 @@
     }
     a.questions.forEach(function (q, i) {
       var r = p.results.questions[i] || { voters: 0, counts: [] };
-      qcards.items[i].sub.textContent = r.voters + ' ' + GM.voterWord(r.voters, q.settings.multiple);
-      qcards.items[i].results.update({ options: q.options, status: a.status }, r);
+      qcards.items[i].sub.textContent = r.voters + ' ' + GM.answerWord(r.voters, q);
+      qcards.items[i].results.update({ options: q.options, status: a.status, type: q.type }, r);
     });
   }
 
@@ -87,7 +87,8 @@
     var a = p.activity;
     var labels = {};
     a.questions.forEach(function (q) {
-      q.options.forEach(function (o, i) { labels[o.id] = o.label || 'Option ' + (i + 1); });
+      var word = q.type === 'ranking' ? 'Item ' : 'Option ';
+      q.options.forEach(function (o, i) { labels[o.id] = o.label || word + (i + 1); });
     });
     var rows = p.responses || [];
     respCount.textContent = rows.length ? GM.plural(rows.length, 'person', 'people') : '';
@@ -107,7 +108,10 @@
       a.questions.forEach(function (q, i) {
         var ids = (r.answers && r.answers[q.id]) || [];
         if (!ids.length) return;
-        var text = ids.map(function (oid) { return labels[oid] || '—'; }).join(', ');
+        // A ranking reads "1. Safety, 2. Speed, 3. Cost".
+        var text = ids.map(function (oid, k) {
+          return (q.type === 'ranking' ? (k + 1) + '. ' : '') + (labels[oid] || '—');
+        }).join(', ');
         plain.push((multi ? qTitle(a, q, i) + ': ' : '') + text);
         answerEl.appendChild(multi ? h('span.ans', { 'data-color': q.color || 'red', text: text }) : document.createTextNode(text));
       });
