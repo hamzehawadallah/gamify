@@ -4208,3 +4208,638 @@ details.disclosure[open] .pp-help .steps {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* ==========================================================================
+   Rankings: cards people drag into order, the editor's items, the leaderboard
+   ========================================================================== */
+
+/* ---------- Participant: the sortable cards ---------- */
+
+.rank {
+  display: grid;
+  gap: 10px;
+}
+
+.rank-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.rank-hint svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--q-text);
+  animation: rank-bob 1.4s var(--ease-in-out) 3;
+}
+
+@keyframes rank-bob {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* What the top and the bottom of the list mean, e.g. "Most important". */
+.rank-end {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 11px 5px 8px;
+  border-radius: 999px;
+  background: var(--q-soft);
+  color: var(--q-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.rank-end.is-bottom {
+  background: var(--fill-2);
+  color: var(--label-2);
+}
+
+.rank-end svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.rank-list {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rank-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 4px 8px 10px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: transform 0.22s var(--ease-out), box-shadow 0.2s var(--ease);
+}
+
+.rank-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--q);
+}
+
+.rank-num {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--q);
+  color: var(--q-ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-img {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: var(--fill-3);
+  outline: 1px solid var(--sep);
+  outline-offset: -1px;
+}
+
+.rank-img img {
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+  object-fit: contain;
+  background: #fff;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.rank-img-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--label-3);
+}
+
+.rank-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 560;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* The handle: grabbing it picks the card up straight away, even on touch. */
+.rank-grip {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 48px;
+  flex: none;
+  margin-inline-start: auto;
+  border-radius: var(--r-sm);
+  color: var(--label-3);
+  touch-action: none;
+}
+
+.rank-grip svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (hover: hover) {
+  .rank:not(.is-sorting):not(.is-locked) .rank-item:hover:not(:focus-visible) {
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+
+  .rank:not(.is-sorting):not(.is-locked) .rank-item:hover .rank-grip {
+    color: var(--label);
+    background: var(--fill-2);
+  }
+}
+
+/* Picked up: lifted, outlined in its color, and it follows the finger exactly. */
+.rank-item.is-dragging {
+  z-index: 5;
+  box-shadow: inset 0 0 0 2px var(--q), 0 14px 32px rgba(0, 0, 0, 0.16);
+  transition: box-shadow 0.2s var(--ease);
+}
+
+.rank.is-sorting,
+.rank.is-sorting * {
+  cursor: grabbing;
+}
+
+.rank-item.is-dragging .rank-grip {
+  color: var(--q-text);
+}
+
+.rank.is-locked .rank-item {
+  cursor: default;
+}
+
+/* First visit: a hand shows the gesture by moving the first card down and back. */
+.rank-item.is-demo {
+  z-index: 2;
+  animation: rank-demo 1.6s 0.6s var(--ease-in-out) 2 both;
+}
+
+@keyframes rank-demo {
+  0%,
+  100% {
+    transform: none;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  18% {
+    transform: scale(1.02);
+    box-shadow: inset 0 0 0 2px var(--q), 0 14px 32px rgba(0, 0, 0, 0.16);
+  }
+
+  48%,
+  62% {
+    transform: translateY(70%) scale(1.02);
+    box-shadow: inset 0 0 0 2px var(--q), 0 14px 32px rgba(0, 0, 0, 0.16);
+  }
+
+  88% {
+    transform: none;
+    box-shadow: inset 0 0 0 2px var(--q), 0 14px 32px rgba(0, 0, 0, 0.16);
+  }
+}
+
+.rank-hand {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 4px;
+  width: 34px;
+  height: 34px;
+  margin-top: -6px;
+  color: var(--label);
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+  animation: rank-hand 1.6s 0.6s var(--ease-in-out) 2 both;
+}
+
+.rank-hand svg {
+  width: 100%;
+  height: 100%;
+  fill: #fff;
+}
+
+@keyframes rank-hand {
+  0% {
+    opacity: 0;
+    transform: translate(8px, 12px);
+  }
+
+  12% {
+    opacity: 1;
+    transform: none;
+  }
+
+  18%,
+  86% {
+    opacity: 1;
+    transform: scale(0.86);
+  }
+
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rank-hand {
+    display: none;
+  }
+
+  .rank-item.is-demo {
+    animation: none;
+  }
+}
+
+.phone-screen .rank-item {
+  min-height: 58px;
+}
+
+.phone-screen .rank-label {
+  font-size: 16px;
+}
+
+.phone-screen .rank-img {
+  width: 46px;
+  height: 46px;
+}
+
+/* Done summary: their own order */
+.p-summary-rank {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.p-summary-rank li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 550;
+}
+
+.p-summary-rank .n {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 7px;
+  background: var(--q);
+  color: var(--q-ink);
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Editor ---------- */
+
+.qcard-type {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 20px 0;
+}
+
+.type-switch {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-sm);
+  background: var(--fill);
+}
+
+.type-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--label-2);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.type-switch button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.type-switch button[aria-checked="true"] {
+  background: var(--surface-raised);
+  color: var(--label);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.qcard-type-hint {
+  font-size: 13px;
+  color: var(--label-3);
+}
+
+.rank-scale-edit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 20px 12px;
+  color: var(--q-text);
+}
+
+.opt-add + .rank-scale-edit {
+  padding-top: 12px;
+  border-top: 1px solid var(--sep);
+}
+
+.rank-scale-edit svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.rank-scale-edit input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--q-soft);
+  color: var(--q-text);
+  font-size: 14px;
+  font-weight: 650;
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+
+.rank-scale-edit input::placeholder {
+  color: var(--q-text);
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+.rank-scale-edit input:focus {
+  box-shadow: inset 0 0 0 2px var(--q);
+}
+
+/* An item's place in its color; a tiny palette dot says "tap to change the color". */
+.opt-num {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--q);
+  color: var(--q-ink);
+  font-size: 14px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.opt-num::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: -4px;
+  bottom: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(#ce2823, #eeb11b, #1f9d55, #0f8f94, #2563d8, #7a45d0, #ce2823);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.opt-num:focus-visible {
+  outline: 2px solid var(--q);
+  outline-offset: 2px;
+}
+
+.opt-row.has-num .img-remove {
+  inset-inline-start: 129px;
+}
+
+.opt-row.has-num + .opt-row.has-num::before {
+  inset-inline-start: 142px;
+}
+
+.color-pop {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: repeat(4, 26px);
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  animation: fade-in 0.15s var(--ease) both;
+}
+
+.color-pop .color-dot {
+  width: 26px;
+  height: 26px;
+}
+
+/* ---------- Results: the leaderboard ---------- */
+
+.results--rank {
+  align-content: center;
+  gap: calc(var(--u) * 1.2 * var(--density, 1));
+}
+
+.stage .results--rank {
+  max-width: calc(var(--u) * 120);
+}
+
+.rr-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "place thumb label value"
+    "place thumb meter meter";
+  align-items: center;
+  column-gap: calc(var(--u) * 1.2);
+  row-gap: calc(var(--u) * 0.5 * var(--density, 1));
+  min-width: 0;
+  transition: transform 0.7s var(--bar-ease);
+}
+
+.rr-item.no-thumb {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "place label value"
+    "place meter meter";
+}
+
+.rr-place {
+  grid-area: place;
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 3.6 * var(--density, 1));
+  height: calc(var(--u) * 3.6 * var(--density, 1));
+  border-radius: calc(var(--u) * 0.8);
+  background: var(--q);
+  color: var(--q-ink);
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 1.8 * var(--density, 1));
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-item.is-unranked .rr-place {
+  background: var(--fill);
+  color: var(--label-3);
+}
+
+.rr-thumb {
+  grid-area: thumb;
+  width: calc(var(--u) * 4.8 * var(--density, 1));
+  height: calc(var(--u) * 4.8 * var(--density, 1));
+  overflow: hidden;
+  border-radius: calc(var(--u) * 0.6);
+  background: var(--fill-3);
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
+}
+
+.rr-thumb img {
+  width: 100%;
+  height: 100%;
+  padding: 4%;
+  object-fit: contain;
+  background: #fff;
+}
+
+.rr-thumb span {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 1.6 * var(--density, 1));
+  font-weight: 700;
+  color: var(--label-3);
+}
+
+.rr-item .r-label {
+  grid-area: label;
+}
+
+.rr-item.is-top .r-label {
+  font-weight: 750;
+}
+
+.rr-item .r-value {
+  grid-area: value;
+}
+
+.rr-item .r-meter {
+  grid-area: meter;
+  height: calc(var(--u) * 0.8 * var(--density, 1));
+}
+
+.rr-avg {
+  font-size: calc(var(--u) * 1 * var(--density, 1));
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--label-3);
+}
+
+/* The presenter wall: narrower columns, smaller rows. */
+.results--rank.is-list {
+  align-content: space-evenly;
+  gap: calc(var(--u) * 0.9 * var(--density, 1));
+}
+
+.results--rank.is-list .rr-item {
+  column-gap: calc(var(--u) * 0.9);
+}
+
+.results--rank.is-list .rr-place {
+  width: calc(var(--u) * 2.6 * var(--density, 1));
+  height: calc(var(--u) * 2.6 * var(--density, 1));
+  border-radius: calc(var(--u) * 0.5);
+  font-size: calc(var(--u) * 1.3 * var(--density, 1));
+}
+
+.results--rank.is-list .rr-thumb {
+  width: calc(var(--u) * 3.6 * var(--density, 1));
+  height: calc(var(--u) * 3.6 * var(--density, 1));
+  border-radius: calc(var(--u) * 0.45);
+}
+
+.results--rank.is-list .r-label {
+  font-size: calc(var(--u) * 1.2 * var(--density, 1));
+}
+
+.results--rank.is-list .r-pct {
+  font-size: calc(var(--u) * 1.4 * var(--density, 1));
+}
+
+.results--rank.is-list .rr-avg {
+  font-size: calc(var(--u) * 0.85 * var(--density, 1));
+}
+
+.results--rank.is-list .r-meter {
+  height: calc(var(--u) * 0.55);
+}
+
+.results.is-compact .rr-avg,
+.results-card .rr-avg {
+  font-size: 11px;
+}
+
+.results.is-compact .rr-place {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.results.is-compact .rr-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-xs);
+}

@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const GM_SCHEMA_VERSION = 3;
+const GM_SCHEMA_VERSION = 4;
 
 function db_connect(array $c): PDO
 {
@@ -191,6 +191,10 @@ function gm_migrations(): array
                 KEY idx_persona_holds_token (hold_token)
             ) $table",
         ],
+        // Ranking questions: a type per question and a color per item.
+        4 => [
+            'db_migrate_ranking',
+        ],
     ];
 }
 
@@ -247,6 +251,17 @@ function db_constraint_exists(PDO $pdo, string $table, string $name): bool
     $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?');
     $stmt->execute([$table, $name]);
     return (bool) $stmt->fetchColumn();
+}
+
+/** Schema step 4: question types and item colors. Safe to re-run. */
+function db_migrate_ranking(PDO $pdo): void
+{
+    if (!db_column_exists($pdo, 'gm_questions', 'type')) {
+        $pdo->exec("ALTER TABLE gm_questions ADD COLUMN type VARCHAR(16) NOT NULL DEFAULT 'poll' AFTER activity_id");
+    }
+    if (!db_column_exists($pdo, 'gm_options', 'color')) {
+        $pdo->exec('ALTER TABLE gm_options ADD COLUMN color VARCHAR(16) NULL AFTER image');
+    }
 }
 
 /** Schema step 3: the persona column. Safe to re-run. */

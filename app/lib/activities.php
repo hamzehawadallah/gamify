@@ -1,12 +1,15 @@
 <?php
 /**
- * Activities: one QR code each, holding one or more questions. Each question
- * has its own options (with optional images), votes and live results.
+ * Activities: one QR code each, holding one or more questions. A question is
+ * a vote (options with optional images) or a ranking (items with a picture
+ * and a color that people drag into order). Each has its own live results.
  * Built so other activity types (feedback, quiz, word cloud) can be added.
  */
 declare(strict_types=1);
 
 const GM_ACTIVITY_TYPES = ['poll'];
+// "poll": pick one or more options. "ranking": put every item in order.
+const GM_QUESTION_TYPES = ['poll', 'ranking'];
 const GM_MAX_OPTIONS = 20;
 const GM_MAX_QUESTIONS = 12;
 const GM_LIVE_WAIT_SECONDS = 15;
@@ -31,7 +34,16 @@ function question_default_settings(int $position = 0): array
         'multiple' => false,      // allow choosing more than one option
         'max_choices' => 0,       // 0 = no limit (only when multiple)
         'color' => GM_QUESTION_COLORS[$position % count(GM_QUESTION_COLORS)],
+        'top_label' => '',        // ranking: what the top of the list means, e.g. "Most important"
+        'bottom_label' => '',     // ranking: what the bottom means, e.g. "Least important"
+        'shuffle' => true,        // ranking: everyone starts from their own shuffled order
     ];
+}
+
+/** A ranking item's color: its own if valid, else the next one in the palette. */
+function option_color(?string $color, int $index): string
+{
+    return in_array($color, GM_QUESTION_COLORS, true) ? $color : GM_QUESTION_COLORS[$index % count(GM_QUESTION_COLORS)];
 }
 
 function activity_settings(array $activity): array
@@ -64,17 +76,23 @@ function activity_normalize_settings($input): array
     return $out;
 }
 
-function question_normalize_settings($input, int $position): array
+function question_normalize_settings($input, int $position, string $type = 'poll'): array
 {
     $input = is_array($input) ? $input : [];
     $defaults = question_default_settings($position);
-    $multiple = array_key_exists('multiple', $input) ? filter_var($input['multiple'], FILTER_VALIDATE_BOOLEAN) : false;
+    $multiple = $type === 'poll' && array_key_exists('multiple', $input) && filter_var($input['multiple'], FILTER_VALIDATE_BOOLEAN);
     $color = (string) ($input['color'] ?? '');
-    return [
+    $out = [
         'multiple' => $multiple,
         'max_choices' => $multiple ? max(0, min(GM_MAX_OPTIONS, (int) ($input['max_choices'] ?? 0))) : 0,
         'color' => in_array($color, GM_QUESTION_COLORS, true) ? $color : $defaults['color'],
     ];
+    if ($type === 'ranking') {
+        $out['top_label'] = clean_text($input['top_label'] ?? '', 60);
+        $out['bottom_label'] = clean_text($input['bottom_label'] ?? '', 60);
+        $out['shuffle'] = array_key_exists('shuffle', $input) ? filter_var($input['shuffle'], FILTER_VALIDATE_BOOLEAN) : $defaults['shuffle'];
+    }
+    return $out;
 }
 
 /* ---------- Loading ---------- */
@@ -94,11 +112,12 @@ function activity_questions(int $activityId): array
 {
     $questions = [];
     foreach (q_all(
-        'SELECT id, title, description, settings, position FROM gm_questions WHERE activity_id = ? ORDER BY position, id',
+        'SELECT id, type, title, description, settings, position FROM gm_questions WHERE activity_id = ? ORDER BY position, id',
         [$activityId]
     ) as $i => $q) {
         $questions[(int) $q['id']] = [
             'id' => (int) $q['id'],
+            'type' => in_array($q['type'], GM_QUESTION_TYPES, true) ? $q['type'] : 'poll',
             'title' => $q['title'],
             'description' => (string) ($q['description'] ?? ''),
             'settings' => question_settings($q, $i),
@@ -106,12 +125,18 @@ function activity_questions(int $activityId): array
         ];
     }
     foreach (q_all(
-        'SELECT id, question_id, label, image FROM gm_options WHERE activity_id = ? ORDER BY position, id',
+        'SELECT id, question_id, label, image, color FROM gm_options WHERE activity_id = ? ORDER BY position, id',
         [$activityId]
     ) as $o) {
         $qid = (int) $o['question_id'];
         if (isset($questions[$qid])) {
-            $questions[$qid]['options'][] = ['id' => (int) $o['id'], 'label' => $o['label'], 'image' => $o['image']];
+            $ranking = $questions[$qid]['type'] === 'ranking';
+            $questions[$qid]['options'][] = [
+                'id' => (int) $o['id'],
+                'label' => $o['label'],
+                'image' => $o['image'],
+                'color' => $ranking ? option_color($o['color'], count($questions[$qid]['options'])) : null,
+            ];
         }
     }
     return array_values($questions);
@@ -168,21 +193,71 @@ function activity_public(array $activity, array $questions): array
         'results_hidden' => (bool) $activity['results_hidden'],
         'settings' => activity_settings($activity),
         'questions' => array_map(static function ($q) {
+            $s = $q['settings'];
+            $settings = ['multiple' => $s['multiple'], 'max_choices' => $s['max_choices']];
+            if ($q['type'] === 'ranking') {
+                $settings += ['top_label' => $s['top_label'], 'bottom_label' => $s['bottom_label'], 'shuffle' => $s['shuffle']];
+            }
             return [
                 'id' => $q['id'],
+                'type' => $q['type'],
                 'title' => $q['title'],
                 'description' => $q['description'],
-                'color' => $q['settings']['color'],
-                'settings' => ['multiple' => $q['settings']['multiple'], 'max_choices' => $q['settings']['max_choices']],
+                'color' => $s['color'],
+                'settings' => $settings,
                 'options' => array_map(static function ($o) {
-                    return ['id' => $o['id'], 'label' => $o['label'], 'image' => image_url($o['image'])];
+                    return ['id' => $o['id'], 'label' => $o['label'], 'image' => image_url($o['image']), 'color' => $o['color']];
                 }, $q['options']),
             ];
         }, $questions),
     ];
 }
 
-/** Vote counts per option and voters per question, plus everyone who took part. */
+/**
+ * For each ranking item: how many people placed it, the sum of their places,
+ * its points (1 for first place down to 0 for last) and how often it came
+ * first. Places count among the items each person ranked, so an item removed
+ * later leaves no gaps.
+ */
+function ranking_stats(int $activityId, array $questions): array
+{
+    $ids = [];
+    foreach ($questions as $q) {
+        if ($q['type'] === 'ranking') {
+            $ids[] = $q['id'];
+        }
+    }
+    if (!$ids) {
+        return [];
+    }
+    $lists = [];
+    foreach (q_all(
+        'SELECT question_id, participant_id, option_id FROM gm_responses
+          WHERE activity_id = ? AND question_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')
+          ORDER BY question_id, participant_id, value_num, id',
+        array_merge([$activityId], $ids)
+    ) as $r) {
+        $lists[$r['question_id'] . '|' . $r['participant_id']][] = (int) $r['option_id'];
+    }
+    $stats = [];
+    foreach ($lists as $list) {
+        $k = count($list);
+        foreach ($list as $i => $oid) {
+            $s = $stats[$oid] ?? ['n' => 0, 'places' => 0, 'points' => 0.0, 'first' => 0];
+            $s['n']++;
+            $s['places'] += $i + 1;
+            $s['points'] += $k > 1 ? ($k - 1 - $i) / ($k - 1) : 1;
+            $s['first'] += $i === 0 ? 1 : 0;
+            $stats[$oid] = $s;
+        }
+    }
+    return $stats;
+}
+
+/**
+ * Vote counts per option and voters per question, plus everyone who took part.
+ * Ranking items also get their average place, a 0–100 score and first places.
+ */
 function activity_results(array $activity, array $questions): array
 {
     $id = (int) $activity['id'];
@@ -197,14 +272,22 @@ function activity_results(array $activity, array $questions): array
     ) as $r) {
         $perQuestion[(int) $r['question_id']] = (int) $r['v'];
     }
+    $ranks = ranking_stats($id, $questions);
     return [
         'voters' => (int) q_val('SELECT COUNT(DISTINCT participant_id) FROM gm_responses WHERE activity_id = ?', [$id]),
-        'questions' => array_map(static function ($q) use ($counts, $perQuestion) {
+        'questions' => array_map(static function ($q) use ($counts, $perQuestion, $ranks) {
             return [
                 'id' => $q['id'],
                 'voters' => $perQuestion[$q['id']] ?? 0,
-                'counts' => array_map(static function ($o) use ($counts) {
-                    return ['id' => $o['id'], 'count' => $counts[$o['id']] ?? 0];
+                'counts' => array_map(static function ($o) use ($q, $counts, $ranks) {
+                    $c = ['id' => $o['id'], 'count' => $counts[$o['id']] ?? 0];
+                    if ($q['type'] === 'ranking') {
+                        $r = $ranks[$o['id']] ?? null;
+                        $c['avg'] = $r ? round($r['places'] / $r['n'], 2) : null;
+                        $c['score'] = $r ? (int) round($r['points'] / $r['n'] * 100) : 0;
+                        $c['first'] = $r ? $r['first'] : 0;
+                    }
+                    return $c;
                 }, $q['options']),
             ];
         }, $questions),
@@ -273,18 +356,20 @@ function activity_live_payload(array $activity, bool $admin = false): array
     return $payload;
 }
 
-/** One row per participant with their picks per question, newest first. */
+/** One row per participant with their picks per question (a ranking in their order), newest first. */
 function activity_response_rows(int $activityId, array $questions, int $limit = 0): array
 {
     $order = [];
+    $ranked = [];
     foreach ($questions as $q) {
+        $ranked[$q['id']] = $q['type'] === 'ranking';
         foreach ($q['options'] as $i => $o) {
             $order[$o['id']] = $i;
         }
     }
     $rows = [];
     foreach (q_all(
-        'SELECT r.participant_id, p.name, p.persona, r.question_id, r.option_id, r.created_at
+        'SELECT r.participant_id, p.name, p.persona, r.question_id, r.option_id, r.value_num, r.created_at
            FROM gm_responses r JOIN gm_participants p ON p.id = r.participant_id
           WHERE r.activity_id = ?
           ORDER BY r.created_at DESC, r.id DESC',
@@ -303,25 +388,28 @@ function activity_response_rows(int $activityId, array $questions, int $limit = 
                 'at' => iso_utc($r['created_at']),
             ];
         }
-        $rows[$pid]['answers'][(int) $r['question_id']][] = (int) $r['option_id'];
+        $rows[$pid]['answers'][(int) $r['question_id']][] = [(int) $r['option_id'], (float) $r['value_num']];
     }
     foreach ($rows as &$row) {
-        foreach ($row['answers'] as &$ids) {
-            usort($ids, static fn($a, $b) => ($order[$a] ?? 0) <=> ($order[$b] ?? 0));
+        foreach ($row['answers'] as $qid => &$picks) {
+            usort($picks, static fn($a, $b) => !empty($ranked[$qid])
+                ? $a[1] <=> $b[1]
+                : ($order[$a[0]] ?? 0) <=> ($order[$b[0]] ?? 0));
+            $picks = array_column($picks, 0);
         }
-        unset($ids);
+        unset($picks);
         $row['answers'] = (object) $row['answers'];
     }
     unset($row);
     return array_values($rows);
 }
 
-/** The participant's picks: [question_id => [option ids]]. */
+/** The participant's picks: [question_id => [option ids]], a ranking in their order. */
 function activity_my_choices(int $activityId, int $participantId): array
 {
     $mine = [];
     foreach (q_all(
-        'SELECT question_id, option_id FROM gm_responses WHERE activity_id = ? AND participant_id = ? ORDER BY id',
+        'SELECT question_id, option_id FROM gm_responses WHERE activity_id = ? AND participant_id = ? ORDER BY value_num, id',
         [$activityId, $participantId]
     ) as $r) {
         $mine[(int) $r['question_id']][] = (int) $r['option_id'];
@@ -410,10 +498,15 @@ function activity_vote(array $activity, array $participant, ?int $questionId, $o
             }
         }
         $qs = $question['settings'];
-        if (!$qs['multiple'] && count($optionIds) > 1) {
+        $ranking = $question['type'] === 'ranking';
+        if ($ranking && count($optionIds) !== count($valid)) {
+            // Every item exactly once. A short list means an item was added meanwhile.
+            throw new UserError('The list just changed. Check your order and submit again.', 409, 'stale');
+        }
+        if (!$ranking && !$qs['multiple'] && count($optionIds) > 1) {
             throw new UserError('Pick just one option.', 422, 'too_many');
         }
-        if ($qs['multiple'] && $qs['max_choices'] > 0 && count($optionIds) > $qs['max_choices']) {
+        if (!$ranking && $qs['multiple'] && $qs['max_choices'] > 0 && count($optionIds) > $qs['max_choices']) {
             throw new UserError('You can pick up to ' . $qs['max_choices'] . ' options.', 422, 'too_many');
         }
 
@@ -426,11 +519,12 @@ function activity_vote(array $activity, array $participant, ?int $questionId, $o
         }
         q('DELETE FROM gm_responses WHERE question_id = ? AND participant_id = ?', [$question['id'], $participant['id']]);
         $now = now_utc();
+        // A ranking stores each item's place (1 = top) in value_num.
         $insert = $pdo->prepare(
-            'INSERT INTO gm_responses (activity_id, question_id, participant_id, option_id, created_at) VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO gm_responses (activity_id, question_id, participant_id, option_id, value_num, created_at) VALUES (?, ?, ?, ?, ?, ?)'
         );
-        foreach ($optionIds as $oid) {
-            $insert->execute([$id, $question['id'], $participant['id'], $oid, $now]);
+        foreach ($optionIds as $i => $oid) {
+            $insert->execute([$id, $question['id'], $participant['id'], $oid, $ranking ? $i + 1 : null, $now]);
         }
         q('UPDATE gm_activities SET version = version + 1 WHERE id = ?', [$id]);
         q('UPDATE gm_participants SET last_seen_at = ? WHERE id = ?', [$now, $participant['id']]);
@@ -463,6 +557,12 @@ function activity_validate_input(array $in, array $savedImages = []): array
             continue;
         }
         $n = count($questions) + 1;
+        $qType = (string) ($qIn['type'] ?? 'poll');
+        if (!in_array($qType, GM_QUESTION_TYPES, true)) {
+            throw new UserError('Question ' . $n . ' has an unknown type.', 422, 'bad_type');
+        }
+        $ranking = $qType === 'ranking';
+        $what = $ranking ? 'items' : 'options';
         $options = [];
         foreach ((array) ($qIn['options'] ?? []) as $o) {
             if (!is_array($o)) {
@@ -476,7 +576,13 @@ function activity_validate_input(array $in, array $savedImages = []): array
             if ($label === '' && $image === null) {
                 continue; // skip blank rows
             }
-            $options[] = ['id' => isset($o['id']) ? (int) $o['id'] : 0, 'label' => $label, 'image' => $image];
+            $color = isset($o['color']) && is_string($o['color']) ? $o['color'] : null;
+            $options[] = [
+                'id' => isset($o['id']) ? (int) $o['id'] : 0,
+                'label' => $label,
+                'image' => $image,
+                'color' => $ranking ? option_color($color, count($options)) : null,
+            ];
         }
         $qTitle = clean_text($qIn['title'] ?? '', 300);
         $qDesc = clean_text($qIn['description'] ?? '', 1000);
@@ -484,16 +590,17 @@ function activity_validate_input(array $in, array $savedImages = []): array
             continue; // skip an untouched, empty question
         }
         if (count($options) < 2) {
-            throw new UserError('Question ' . $n . ' needs at least two options.', 422, 'options_required');
+            throw new UserError('Question ' . $n . ' needs at least two ' . $what . '.', 422, 'options_required');
         }
         if (count($options) > GM_MAX_OPTIONS) {
-            throw new UserError('Question ' . $n . ' can have up to ' . GM_MAX_OPTIONS . ' options.', 422, 'too_many_options');
+            throw new UserError('Question ' . $n . ' can have up to ' . GM_MAX_OPTIONS . ' ' . $what . '.', 422, 'too_many_options');
         }
         $questions[] = [
             'id' => isset($qIn['id']) ? (int) $qIn['id'] : 0,
+            'type' => $qType,
             'title' => $qTitle,
             'description' => $qDesc,
-            'settings' => question_normalize_settings($qIn['settings'] ?? [], count($questions)),
+            'settings' => question_normalize_settings($qIn['settings'] ?? [], count($questions), $qType),
             'options' => $options,
         ];
     }
@@ -550,16 +657,20 @@ function activity_save(?int $id, array $in): int
             if ($q['id'] && isset($existing[$q['id']])) {
                 $qid = $q['id'];
                 q(
-                    'UPDATE gm_questions SET title = ?, description = ?, settings = ?, position = ? WHERE id = ?',
-                    [$q['title'], $q['description'], $qJson, $qPos, $qid]
+                    'UPDATE gm_questions SET type = ?, title = ?, description = ?, settings = ?, position = ? WHERE id = ?',
+                    [$q['type'], $q['title'], $q['description'], $qJson, $qPos, $qid]
                 );
+                if ($existing[$qid]['type'] !== $q['type']) {
+                    // Votes and rankings are stored differently, so a new type starts afresh.
+                    q('DELETE FROM gm_responses WHERE question_id = ?', [$qid]);
+                }
                 foreach ($existing[$qid]['options'] as $o) {
                     $oldOptions[$o['id']] = $o;
                 }
             } else {
                 q(
-                    'INSERT INTO gm_questions (activity_id, title, description, settings, position) VALUES (?, ?, ?, ?, ?)',
-                    [$id, $q['title'], $q['description'], $qJson, $qPos]
+                    'INSERT INTO gm_questions (activity_id, type, title, description, settings, position) VALUES (?, ?, ?, ?, ?, ?)',
+                    [$id, $q['type'], $q['title'], $q['description'], $qJson, $qPos]
                 );
                 $qid = (int) $pdo->lastInsertId();
             }
@@ -568,15 +679,15 @@ function activity_save(?int $id, array $in): int
             $keepOptions = [];
             foreach ($q['options'] as $pos => $o) {
                 if ($o['id'] && isset($oldOptions[$o['id']])) {
-                    q('UPDATE gm_options SET label = ?, image = ?, position = ? WHERE id = ?', [$o['label'], $o['image'], $pos, $o['id']]);
+                    q('UPDATE gm_options SET label = ?, image = ?, color = ?, position = ? WHERE id = ?', [$o['label'], $o['image'], $o['color'], $pos, $o['id']]);
                     $keepOptions[$o['id']] = true;
                     if ($oldOptions[$o['id']]['image'] && $oldOptions[$o['id']]['image'] !== $o['image']) {
                         $removedImages[] = $oldOptions[$o['id']]['image'];
                     }
                 } else {
                     q(
-                        'INSERT INTO gm_options (activity_id, question_id, label, image, position) VALUES (?, ?, ?, ?, ?)',
-                        [$id, $qid, $o['label'], $o['image'], $pos]
+                        'INSERT INTO gm_options (activity_id, question_id, label, image, color, position) VALUES (?, ?, ?, ?, ?, ?)',
+                        [$id, $qid, $o['label'], $o['image'], $o['color'], $pos]
                     );
                 }
             }
@@ -642,13 +753,13 @@ function activity_duplicate(array $activity): int
         $newId = (int) $pdo->lastInsertId();
         foreach (q_all('SELECT * FROM gm_questions WHERE activity_id = ? ORDER BY position, id', [$activity['id']]) as $q) {
             q(
-                'INSERT INTO gm_questions (activity_id, title, description, settings, position) VALUES (?, ?, ?, ?, ?)',
-                [$newId, $q['title'], $q['description'], $q['settings'], $q['position']]
+                'INSERT INTO gm_questions (activity_id, type, title, description, settings, position) VALUES (?, ?, ?, ?, ?, ?)',
+                [$newId, $q['type'], $q['title'], $q['description'], $q['settings'], $q['position']]
             );
             $newQid = (int) $pdo->lastInsertId();
             q(
-                'INSERT INTO gm_options (activity_id, question_id, label, image, position)
-                 SELECT ?, ?, label, image, position FROM gm_options WHERE question_id = ? ORDER BY position, id',
+                'INSERT INTO gm_options (activity_id, question_id, label, image, color, position)
+                 SELECT ?, ?, label, image, color, position FROM gm_options WHERE question_id = ? ORDER BY position, id',
                 [$newId, $newQid, $q['id']]
             );
         }
@@ -670,6 +781,7 @@ function activity_list(): array
         'SELECT a.id, a.code, a.type, a.title, a.status, a.results_hidden, a.created_at, a.updated_at,
                 (SELECT COUNT(DISTINCT r.participant_id) FROM gm_responses r WHERE r.activity_id = a.id) AS voters,
                 (SELECT COUNT(*) FROM gm_questions q WHERE q.activity_id = a.id) AS question_count,
+                (SELECT COUNT(*) FROM gm_questions q WHERE q.activity_id = a.id AND q.type = \'ranking\') AS ranking_count,
                 (SELECT o.image FROM gm_options o JOIN gm_questions q ON q.id = o.question_id
                   WHERE o.activity_id = a.id AND o.image IS NOT NULL ORDER BY q.position, o.position LIMIT 1) AS cover
            FROM gm_activities a
@@ -685,6 +797,7 @@ function activity_list(): array
             'results_hidden' => (bool) $r['results_hidden'],
             'voters' => (int) $r['voters'],
             'question_count' => (int) $r['question_count'],
+            'ranking_count' => (int) $r['ranking_count'],
             'cover' => image_url($r['cover']),
             'created_at' => iso_utc($r['created_at']),
             'updated_at' => iso_utc($r['updated_at']),
@@ -704,11 +817,12 @@ function activity_editor_data(array $activity): array
         'questions' => array_map(static function ($q) {
             return [
                 'id' => $q['id'],
+                'type' => $q['type'],
                 'title' => $q['title'],
                 'description' => $q['description'],
                 'settings' => $q['settings'],
                 'options' => array_map(static function ($o) {
-                    return ['id' => $o['id'], 'label' => $o['label'], 'image' => $o['image'], 'image_url' => image_url($o['image'])];
+                    return ['id' => $o['id'], 'label' => $o['label'], 'image' => $o['image'], 'image_url' => image_url($o['image']), 'color' => $o['color']];
                 }, $q['options']),
             ];
         }, activity_questions((int) $activity['id'])),

@@ -87,7 +87,7 @@ function admin_new(): void
         'title' => 'New activity',
         'bodyClass' => 'page-editor',
         'editor' => null,
-        'scripts' => ['js/poll.js', 'js/admin.js', 'js/editor.js'],
+        'scripts' => ['js/poll.js', 'js/rank.js', 'js/admin.js', 'js/editor.js'],
     ]);
 }
 
@@ -99,7 +99,7 @@ function admin_edit(string $id): void
         'title' => 'Edit activity',
         'bodyClass' => 'page-editor',
         'editor' => activity_editor_data($activity),
-        'scripts' => ['js/poll.js', 'js/admin.js', 'js/editor.js'],
+        'scripts' => ['js/poll.js', 'js/rank.js', 'js/admin.js', 'js/editor.js'],
     ]);
 }
 
@@ -151,6 +151,10 @@ function admin_export_csv(string $id): void
         $cells = [$safe($row['name'])];
         foreach ($questions as $q) {
             $picked = array_map(static fn($oid) => $labels[$oid] ?? '', $answers[$q['id']] ?? []);
+            if ($q['type'] === 'ranking') {
+                // "1. Coffee; 2. Tea; 3. Water"
+                $picked = array_map(static fn($label, $i) => ($i + 1) . '. ' . $label, $picked, array_keys($picked));
+            }
             $cells[] = $safe(implode('; ', $picked));
         }
         $cells[] = str_replace('T', ' ', rtrim($row['at'], 'Z'));
@@ -162,6 +166,17 @@ function admin_export_csv(string $id): void
     foreach ($questions as $qi => $q) {
         $r = $results['questions'][$qi];
         csv_row($out, []);
+        if ($q['type'] === 'ranking') {
+            // Best average place first; items nobody ranked go last.
+            $rows = $r['counts'];
+            usort($rows, static fn($a, $b) => [$a['avg'] === null, $a['avg'], -$a['first']] <=> [$b['avg'] === null, $b['avg'], -$b['first']]);
+            csv_row($out, [$safe($titles[$q['id']]), 'Average place', 'Score (0–100)', 'Ranked first']);
+            foreach ($rows as $c) {
+                csv_row($out, [$safe($labels[$c['id']] ?? ''), $c['avg'] ?? '', $c['score'], $c['first']]);
+            }
+            csv_row($out, ['People who ranked', $r['voters']]);
+            continue;
+        }
         csv_row($out, [$safe($titles[$q['id']]), 'Votes', '% of voters']);
         foreach ($r['counts'] as $c) {
             $pct = $r['voters'] > 0 ? round($c['count'] / $r['voters'] * 100) . '%' : '0%';

@@ -1,5 +1,6 @@
-/* Participant page: name once → answer each question of the activity → summary
-   (and live results, if the trainer allows it). */
+/* Participant page: name once → answer each question of the activity (pick
+   options, or drag a ranking into order) → summary (and live results, if the
+   trainer allows it). */
 (function () {
   'use strict';
 
@@ -61,9 +62,27 @@
 
   function optionLabel(q, id) {
     for (var i = 0; i < q.options.length; i++) {
-      if (q.options[i].id === id) return q.options[i].label || 'Option ' + (i + 1);
+      if (q.options[i].id === id) return q.options[i].label || (isRanking(q) ? 'Item ' : 'Option ') + (i + 1);
     }
     return '';
+  }
+
+  function isRanking(q) {
+    return q.type === 'ranking';
+  }
+
+  /** Same answer? Votes compare as sets, rankings in order. */
+  function sameAnswer(q, a, b) {
+    if (!a || !b) return false;
+    return isRanking(q) ? a.join() === b.join() : a.slice().sort().join() === b.slice().sort().join();
+  }
+
+  /** A ranking starts from the order on screen, else the saved one, else this person's own shuffle. */
+  function rankingStart(q) {
+    var ids = q.options.map(function (o) { return o.id; });
+    var base = q.settings.shuffle ? GM.Rank.shuffle(ids, (state.me ? state.me.token : '') + ':' + q.id) : ids;
+    var from = state.selected.length ? state.selected : answered(q) ? state.my[q.id] : [];
+    return GM.Rank.complete(from, base);
   }
 
   /* ---------- Identity ---------- */
@@ -314,25 +333,34 @@
     var locked = answered(q) && !a.settings.allow_change;
 
     // Start from the saved answer for this question.
-    var ids = q.options.map(function (o) { return o.id; });
-    state.selected = state.selected.filter(function (id) { return ids.indexOf(id) >= 0; });
-    if (!state.selected.length && answered(q)) state.selected = state.my[q.id].slice();
+    var ranking = isRanking(q);
+    if (ranking) {
+      state.selected = rankingStart(q);
+    } else {
+      var ids = q.options.map(function (o) { return o.id; });
+      state.selected = state.selected.filter(function (id) { return ids.indexOf(id) >= 0; });
+      if (!state.selected.length && answered(q)) state.selected = state.my[q.id].slice();
+    }
 
     var isLast = i === qs.length - 1;
+    var noun = ranking ? 'ranking' : 'vote';
     var submit = h('button.btn.btn-primary.btn-lg', { type: 'button' });
     function syncButton() {
       var was = answered(q);
-      var changed = !was || state.selected.slice().sort().join() !== state.my[q.id].slice().sort().join();
-      if (!multi) submit.textContent = !was ? 'Submit vote' : changed ? 'Update vote' : 'Keep my vote';
+      var changed = !was || !sameAnswer(q, state.selected, state.my[q.id]);
+      if (!multi) submit.textContent = !was ? 'Submit ' + noun : changed ? 'Update ' + noun : 'Keep my ' + noun;
       else if (!isLast) submit.textContent = 'Next';
       else submit.textContent = !was ? 'Submit' : changed ? 'Update & finish' : 'Done';
       submit.disabled = state.selected.length === 0 && !locked;
     }
 
-    var opts = GM.Poll.options(q, state.selected, function (sel) {
+    var onPick = function (sel) {
       state.selected = sel;
       syncButton();
-    }, { disabled: locked });
+    };
+    var opts = ranking
+      ? GM.Rank.list(q, state.selected, onPick, { disabled: locked, demo: true })
+      : GM.Poll.options(q, state.selected, onPick, { disabled: locked });
     syncButton();
 
     var view = h('section.p-view', { 'data-color': q.color || 'red' });
@@ -353,7 +381,7 @@
     view.appendChild(h('h1.p-title', { dir: 'auto', text: titleText }));
     if (!multi && a.description) view.appendChild(h('p.p-desc', { dir: 'auto', text: a.description }));
     if (q.description) view.appendChild(h('p.p-desc', { dir: 'auto', text: q.description }));
-    view.appendChild(h('p.p-hint', { text: GM.Poll.hint(q.settings) }));
+    if (!ranking) view.appendChild(h('p.p-hint', { text: GM.Poll.hint(q.settings) }));
     view.appendChild(opts);
     if (locked) view.appendChild(h('p.p-locked', null, GM.icon('lock'), 'You’ve answered this one. Answers can’t be changed for this activity.'));
     main.appendChild(view);
@@ -378,7 +406,7 @@
     }
     if (state.editing && !multi) {
       inner.appendChild(h('button.btn.btn-plain', {
-        type: 'button', text: 'Keep my previous vote',
+        type: 'button', text: 'Keep my previous ' + noun,
         onclick: function () { finish(false); }
       }));
     }
@@ -388,7 +416,7 @@
   /** Save this question's answer (if it changed), then move on. */
   function submitStep(btn, q, locked) {
     var qs = questions();
-    var unchanged = answered(q) && state.selected.slice().sort().join() === state.my[q.id].slice().sort().join();
+    var unchanged = answered(q) && sameAnswer(q, state.selected, state.my[q.id]);
     if (locked || unchanged || !state.selected.length) {
       advance();
       return;
@@ -456,23 +484,37 @@
       html: '<svg class="check-anim" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="46"/><path d="M29 49.5l12.5 12.5L67 36"/></svg>'
     }).firstChild;
 
+    var noun = qs.length === 1 && isRanking(qs[0]) ? 'ranking' : 'vote';
     var heading = state.justVoted ? 'Thanks, ' + first + '!' : (missing < 0 ? 'You’re all done' : 'Your answers');
     var lead = !open ? 'Voting has closed.'
-      : missing < 0 ? (qs.length > 1 ? 'All your answers are in.' : 'Your vote is in.')
+      : missing < 0 ? (qs.length > 1 ? 'All your answers are in.' : 'Your ' + noun + ' is in.')
       : 'You skipped ' + GM.plural(qs.filter(function (q) { return !answered(q); }).length, 'question', 'questions') + '.';
 
     var summary = h('div.p-summary');
     qs.forEach(function (q, i) {
-      var picks = (state.my[q.id] || []).map(function (id) { return optionLabel(q, id); }).filter(Boolean);
+      var mine = state.my[q.id] || [];
+      var picks = mine.map(function (id) { return optionLabel(q, id); }).filter(Boolean);
+      var answer;
+      if (isRanking(q) && picks.length) {
+        // Their own order, each item with its place and color.
+        answer = h('ol.p-summary-rank', null, mine.map(function (id, k) {
+          var o = q.options.filter(function (x) { return x.id === id; })[0];
+          return o ? h('li', { 'data-color': o.color || 'charcoal' },
+            h('span.n', { text: String(k + 1) }),
+            h('span', { dir: 'auto', text: optionLabel(q, id) })) : null;
+        }));
+      } else {
+        answer = h('div.p-summary-a' + (picks.length ? '' : '.is-empty'), { dir: 'auto', text: picks.length ? picks.join(', ') : 'Skipped' });
+      }
       var card = h('div.p-summary-card', { 'data-color': q.color || 'red' },
         qs.length > 1 ? h('div.p-summary-q', { dir: 'auto', text: qTitle(q, i) }) : null,
-        h('div.p-summary-a' + (picks.length ? '' : '.is-empty'), { dir: 'auto', text: picks.length ? picks.join(', ') : 'Skipped' }));
+        answer);
       var r = state.results && state.results.questions && state.results.questions[i];
       if (r && r.counts) {
         var holder = h('div');
         card.appendChild(holder);
         var view = new GM.Results(holder, { compact: true });
-        view.update({ options: q.options, status: a.status }, r);
+        view.update({ options: q.options, status: a.status, type: q.type }, r);
         resultViews.push({ view: view, index: i });
       }
       summary.appendChild(card);
@@ -496,7 +538,7 @@
     }
     if (open && a.settings.allow_change && anyAnswered()) {
       buttons.push(h('button.btn.btn-tinted.btn-lg.btn-block', {
-        type: 'button', text: qs.length > 1 ? 'Change my answers' : 'Change my vote',
+        type: 'button', text: qs.length > 1 ? 'Change my answers' : 'Change my ' + noun,
         onclick: function () { state.editing = true; state.step = 0; state.selected = []; render(); }
       }));
     }
@@ -589,7 +631,7 @@
             resultViews.forEach(function (rv) {
               var q = questions()[rv.index];
               var r = state.results.questions[rv.index];
-              if (q && r && r.counts) rv.view.update({ options: q.options, status: state.activity.status }, r);
+              if (q && r && r.counts) rv.view.update({ options: q.options, status: state.activity.status, type: q.type }, r);
             });
           }
         }

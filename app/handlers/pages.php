@@ -27,7 +27,7 @@ function page_participant(string $code): void
         'title' => $activity ? $activity['title'] : 'Activity not found',
         'bodyClass' => 'page-participant',
         'data' => $data,
-        'scripts' => ['js/poll.js', 'js/results.js', 'js/participant.js'],
+        'scripts' => ['js/poll.js', 'js/rank.js', 'js/results.js', 'js/participant.js'],
     ]);
 }
 

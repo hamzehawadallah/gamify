@@ -1,5 +1,6 @@
 /* Live results renderer — used on the presenter screen, the admin page and phones.
-   Builds the DOM once, then only updates widths and numbers so changes animate. */
+   Builds the DOM once, then only updates widths and numbers so changes animate.
+   Rankings show a leaderboard whose rows slide to their new places. */
 (function () {
   'use strict';
 
@@ -73,10 +74,14 @@
   };
 
   /**
-   * question: { options:[{id,label,image}], status }  (status is the activity's)
-   * results:  { voters, counts:[{id,count}] }
+   * question: { options:[{id,label,image,color}], status, type }  (status is the activity's)
+   * results:  { voters, counts:[{id,count}] } — rankings add avg, score and first per item
    */
   Results.prototype.update = function (activity, results) {
+    if (activity.type === 'ranking') {
+      this.updateRanking(activity, results);
+      return;
+    }
     var options = activity.options || [];
     var key = options.map(function (o) { return o.id + '|' + o.label + '|' + (o.image || ''); }).join('~') + (this.opts.compact ? 'c' : '') + (this.opts.layout || '');
     var justBuilt = false;
@@ -122,6 +127,110 @@
           row.badge.remove();
           row.badge = null;
         }
+      });
+    });
+  };
+
+  /* ---------- Rankings ---------- */
+
+  Results.prototype.buildRanking = function (options) {
+    var hasImages = options.some(function (o) { return !!o.image; });
+    var n = options.length;
+    var self = this;
+    this.rows = {};
+    this.mode = 'rank';
+
+    var el = h('div.results.results--rank' + (this.opts.compact ? '.is-compact' : '') + (this.opts.layout === 'list' ? '.is-list' : ''), { role: 'list' });
+    el.style.setProperty('--density', String(n <= 4 ? 1 : n <= 6 ? 0.86 : n <= 8 ? 0.74 : n <= 12 ? 0.6 : 0.5));
+    options.forEach(function (o, i) {
+      var label = o.label || 'Item ' + (i + 1);
+      var place = h('span.rr-place', { text: '–' });
+      var avg = h('b.r-pct', { text: '–' });
+      var fill = h('div.r-fill');
+      var row = h('div.rr-item' + (hasImages ? '' : '.no-thumb'), { role: 'listitem', 'data-color': o.color || 'charcoal' },
+        place,
+        hasImages ? h('div.rr-thumb', null, o.image
+          ? h('img', { src: o.image, alt: '', decoding: 'async' })
+          : h('span', { text: GM.initials(label) })) : null,
+        h('div.r-label', { dir: 'auto', text: label }),
+        h('span.r-value', null, h('span.rr-avg', { text: 'avg' }), avg),
+        h('div.r-meter', null, fill));
+      self.rows[o.id] = { el: row, place: place, avg: avg, fill: fill, label: label, index: i };
+      el.appendChild(row);
+    });
+
+    this.root.innerHTML = '';
+    this.root.appendChild(el);
+    this.el = el;
+  };
+
+  /** Best average place first. Ties share a place; items nobody ranked yet go last. */
+  Results.prototype.updateRanking = function (question, results) {
+    var options = question.options || [];
+    var key = 'rank~' + options.map(function (o) { return o.id + '|' + o.label + '|' + (o.image || '') + '|' + (o.color || ''); }).join('~') +
+      (this.opts.compact ? 'c' : '') + (this.opts.layout || '');
+    var justBuilt = false;
+    if (key !== this.key) {
+      this.key = key;
+      this.buildRanking(options);
+      justBuilt = true;
+    }
+
+    var stats = {};
+    (results.counts || []).forEach(function (c) { stats[c.id] = c; });
+    var rows = this.rows;
+    var sorted = options.slice().sort(function (a, b) {
+      var x = stats[a.id] || {};
+      var y = stats[b.id] || {};
+      var ax = x.avg === null || x.avg === undefined ? Infinity : x.avg;
+      var ay = y.avg === null || y.avg === undefined ? Infinity : y.avg;
+      return (ax - ay) || ((y.first || 0) - (x.first || 0)) || (rows[a.id].index - rows[b.id].index);
+    });
+
+    // Slide rows to their new places: measure, reorder, then animate from the old spot.
+    var el = this.el;
+    var moved = sorted.some(function (o, i) { return el.children[i] !== rows[o.id].el; });
+    if (moved) {
+      var first = {};
+      if (!justBuilt) sorted.forEach(function (o) { first[o.id] = rows[o.id].el.getBoundingClientRect().top; });
+      sorted.forEach(function (o) {
+        rows[o.id].el.style.transition = 'none';
+        rows[o.id].el.style.transform = '';
+        el.appendChild(rows[o.id].el);
+      });
+      if (!justBuilt) {
+        sorted.forEach(function (o) {
+          var dy = first[o.id] - rows[o.id].el.getBoundingClientRect().top;
+          if (Math.abs(dy) >= 0.5) rows[o.id].el.style.transform = 'translateY(' + dy + 'px)';
+        });
+        el.getBoundingClientRect();
+      }
+      sorted.forEach(function (o) {
+        rows[o.id].el.style.transition = '';
+        rows[o.id].el.style.transform = '';
+      });
+    }
+
+    var showTop = question.status === 'closed';
+    var schedule = justBuilt
+      ? function (fn) { requestAnimationFrame(function () { requestAnimationFrame(fn); }); }
+      : function (fn) { fn(); };
+    schedule(function () {
+      var place = 0;
+      var prev = null;
+      sorted.forEach(function (o, i) {
+        var row = rows[o.id];
+        var c = stats[o.id] || {};
+        var ranked = c.avg !== null && c.avg !== undefined;
+        if (ranked && c.avg !== prev) place = i + 1;
+        prev = ranked ? c.avg : prev;
+        row.place.textContent = ranked ? String(place) : '–';
+        row.avg.textContent = ranked ? c.avg.toFixed(1) : '–';
+        row.fill.style.setProperty('--p', String(ranked ? (c.score || 0) / 100 : 0));
+        row.fill.classList.toggle('is-zero', !ranked || !c.score);
+        row.el.classList.toggle('is-unranked', !ranked);
+        row.el.classList.toggle('is-top', showTop && ranked && place === 1);
+        row.el.setAttribute('aria-label', row.label + ': ' + (ranked ? 'place ' + place + ', average place ' + c.avg.toFixed(1) : 'not ranked yet'));
       });
     });
   };
