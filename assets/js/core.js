@@ -305,6 +305,12 @@
     });
   };
 
+  /** An option's tag as a small colored pill, e.g. above its title. tag: { name, color } or null. */
+  GM.tagPill = function (tag) {
+    if (!tag || !tag.name) return null;
+    return GM.h('span.tag-pill', { 'data-color': tag.color || 'charcoal', dir: 'auto', text: tag.name });
+  };
+
   GM.timeAgo = function (iso) {
     var t = Date.parse(iso);
     if (!t) return '';

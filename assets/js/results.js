@@ -7,6 +7,16 @@
   var GM = window.GM;
   var h = GM.h;
 
+  /** An option's title with its tag (if any) as a pill above it. */
+  function nameEl(o, label) {
+    return h('div.r-name', null, GM.tagPill(o.tag), h('div.r-label', { dir: 'auto', text: label }));
+  }
+
+  /** What makes a results layout need rebuilding: the options as shown. */
+  function optionKey(o) {
+    return [o.id, o.label, o.image || '', o.color || '', o.tag ? o.tag.name + '/' + o.tag.color : ''].join('|');
+  }
+
   function Results(root, opts) {
     this.root = root;
     this.opts = opts || {};
@@ -24,8 +34,10 @@
     this.mode = this.opts.layout === 'list' ? 'list' : hasImages ? 'tiles' : 'bars';
 
     var el = h('div.results.results--' + this.mode + (compact ? '.is-compact' : ''), { role: 'list' });
+    // Tag pills add a line to each row; the wall's narrow columns squeeze a little to fit.
+    var squeeze = this.opts.layout === 'list' && options.some(function (o) { return !!o.tag; }) ? 0.82 : 1;
     if (this.mode === 'list') {
-      el.style.setProperty('--density', String(n <= 4 ? 1 : n <= 5 ? 0.88 : n <= 7 ? 0.76 : 0.64));
+      el.style.setProperty('--density', String((n <= 4 ? 1 : n <= 5 ? 0.88 : n <= 7 ? 0.76 : 0.64) * squeeze));
     } else if (hasImages) {
       var cols = n <= 4 ? n : n <= 6 ? 3 : n <= 8 ? 4 : 5;
       el.style.setProperty('--cols', String(Math.max(2, cols)));
@@ -46,7 +58,7 @@
       if (mode === 'list') {
         row = h('div.r-item' + (hasImages ? '' : '.no-thumb'), { role: 'listitem' },
           hasImages ? h('div.r-thumb', null, o.image ? h('img', { src: o.image, alt: '', decoding: 'async' }) : null) : null,
-          h('div.r-label', { dir: 'auto', text: label || 'Option ' + (i + 1) }),
+          nameEl(o, label || 'Option ' + (i + 1)),
           value,
           h('div.r-meter', null, fill));
         value.removeChild(count);
@@ -56,12 +68,12 @@
           : h('div.r-img-empty', { text: GM.initials(label || String(i + 1)) });
         row = h('div.r-tile', { role: 'listitem' },
           h('div.r-img', null, img),
-          label ? h('div.r-label', { dir: 'auto', text: label }) : null,
+          label || o.tag ? nameEl(o, label) : null,
           h('div.r-meter', null, fill),
           value);
       } else {
         row = h('div.r-row', { role: 'listitem' },
-          h('div.r-label', { dir: 'auto', text: label }),
+          nameEl(o, label),
           h('div.r-track', null, fill, value));
       }
       self.rows[o.id] = { el: row, fill: fill, pct: pct, count: count, value: value, badge: null };
@@ -83,7 +95,7 @@
       return;
     }
     var options = activity.options || [];
-    var key = options.map(function (o) { return o.id + '|' + o.label + '|' + (o.image || ''); }).join('~') + (this.opts.compact ? 'c' : '') + (this.opts.layout || '');
+    var key = options.map(optionKey).join('~') + (this.opts.compact ? 'c' : '') + (this.opts.layout || '');
     var justBuilt = false;
     if (key !== this.key) {
       this.key = key;
@@ -141,7 +153,8 @@
     this.mode = 'rank';
 
     var el = h('div.results.results--rank' + (this.opts.compact ? '.is-compact' : '') + (this.opts.layout === 'list' ? '.is-list' : ''), { role: 'list' });
-    el.style.setProperty('--density', String(n <= 4 ? 1 : n <= 6 ? 0.86 : n <= 8 ? 0.74 : n <= 12 ? 0.6 : 0.5));
+    var squeeze = this.opts.layout === 'list' && options.some(function (o) { return !!o.tag; }) ? 0.8 : 1;
+    el.style.setProperty('--density', String((n <= 4 ? 1 : n <= 6 ? 0.86 : n <= 8 ? 0.74 : n <= 12 ? 0.6 : 0.5) * squeeze));
     options.forEach(function (o, i) {
       var label = o.label || 'Item ' + (i + 1);
       var place = h('span.rr-place', { text: '–' });
@@ -152,7 +165,7 @@
         hasImages ? h('div.rr-thumb', null, o.image
           ? h('img', { src: o.image, alt: '', decoding: 'async' })
           : h('span', { text: GM.initials(label) })) : null,
-        h('div.r-label', { dir: 'auto', text: label }),
+        nameEl(o, label),
         h('span.r-value', null, h('span.rr-avg', { text: 'avg' }), avg),
         h('div.r-meter', null, fill));
       self.rows[o.id] = { el: row, place: place, avg: avg, fill: fill, label: label, index: i };
@@ -167,7 +180,7 @@
   /** Best average place first. Ties share a place; items nobody ranked yet go last. */
   Results.prototype.updateRanking = function (question, results) {
     var options = question.options || [];
-    var key = 'rank~' + options.map(function (o) { return o.id + '|' + o.label + '|' + (o.image || '') + '|' + (o.color || ''); }).join('~') +
+    var key = 'rank~' + options.map(optionKey).join('~') +
       (this.opts.compact ? 'c' : '') + (this.opts.layout || '');
     var justBuilt = false;
     if (key !== this.key) {

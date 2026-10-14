@@ -74,7 +74,7 @@
         type: 'button',
         role: multi ? 'checkbox' : 'radio',
         'aria-checked': current.indexOf(o.id) >= 0 ? 'true' : 'false',
-        'aria-label': label || 'Option ' + (i + 1),
+        'aria-label': (label || 'Option ' + (i + 1)) + (o.tag ? ', ' + o.tag.name : ''),
         style: { '--i': i },
         disabled: opts.disabled
       });
@@ -83,7 +83,8 @@
           ? h('img', { src: o.image, alt: '', loading: 'lazy', decoding: 'async' })
           : h('span.opt-img-empty', { text: GM.initials(label || String(i + 1)) })));
       }
-      btn.appendChild(h('span.opt-label', { dir: 'auto', text: label }));
+      // The tag (if any) sits as a pill above the option's title.
+      if (label || o.tag) btn.appendChild(h('span.opt-text', null, GM.tagPill(o.tag), label ? h('span.opt-label', { dir: 'auto', text: label }) : null));
       btn.appendChild(h('span.opt-mark', { html: CHECK }));
       btn.addEventListener('click', function () {
         var idx = current.indexOf(o.id);

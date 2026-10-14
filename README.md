@@ -8,6 +8,7 @@ You watch the results update live on the big screen, including inside PowerPoint
 - **Personas.** Each participant picks a persona emoji from a scrolling row (people and characters only). No two people share one: everyone is offered a different free persona, held for them while they type their name, and personas in use aren't shown. The presenter screen shows them as people vote.
 - **Activities with several questions.** One QR code per activity, holding one or more questions, like a toolbox voting wall with three sections. Each question has its own title, description and color.
 - **Pictures on options.** Every question can be single or multiple choice (with an optional limit), with a picture on any option.
+- **Tags.** Create tags for an activity (a name and a color, e.g. *Tool*, *Model*) and give any option one. It shows as a colored pill above the option's title, on phones and in the results.
 - **Rankings.** Turn any question into a ranking: a list of items, each with a picture, a color and a title. Participants drag the numbered cards into the order they think fits best, e.g. from *most important* to *least important*, and the presenter shows a live leaderboard.
 - **Instant results.** New votes reach the presenter screen in well under a second.
 - **Present anywhere.** The presenter view goes straight onto your slides with VCL Gamify's own free PowerPoint add-in. It scales to any size, in light or dark.

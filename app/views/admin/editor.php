@@ -22,6 +22,14 @@
       </section>
 
       <section>
+        <h2 class="section-label">Tags</h2>
+        <div class="card tags-card">
+          <div class="tag-list" id="tag-list"></div>
+          <p class="field-hint">Optional. Tag an option with the <?= icon('tag', 'inline-icon') ?> button next to it: the tag shows as a colored pill above the option’s title.</p>
+        </div>
+      </section>
+
+      <section>
         <h2 class="section-label">Questions</h2>
         <div class="questions" id="questions"></div>
         <button type="button" class="add-question" id="add-question"><?= icon('plus') ?>Add question</button>
@@ -71,4 +79,4 @@
   </div>
 </div>
 <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-<script type="application/json" id="gm-data"><?= json_for_html(['editor' => $editor, 'defaults' => activity_default_settings(), 'colors' => GM_QUESTION_COLORS, 'maxQuestions' => GM_MAX_QUESTIONS]) ?></script>
+<script type="application/json" id="gm-data"><?= json_for_html(['editor' => $editor, 'defaults' => activity_default_settings(), 'colors' => GM_QUESTION_COLORS, 'maxQuestions' => GM_MAX_QUESTIONS, 'maxTags' => GM_MAX_TAGS]) ?></script>

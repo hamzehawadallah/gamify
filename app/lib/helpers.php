@@ -324,6 +324,7 @@ function icon_paths(): array
         'arrow-up' => '<path d="M12 19V5M6 11l6-6 6 6"/>',
         'arrow-down' => '<path d="M12 5v14M6 13l6 6 6-6"/>',
         'move' => '<path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/>',
+        'tag' => '<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
         'merge' => '<path d="M6 3v4.5a4 4 0 0 0 1.2 2.8L12 15v6M18 3v4.5a4 4 0 0 1-1.2 2.8L12 15"/><path d="M9 18l3 3 3-3"/>',
         'info' => '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.01"/>',
         'alert' => '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.4v.01"/>',
