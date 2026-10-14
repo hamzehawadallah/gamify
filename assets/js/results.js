@@ -160,7 +160,7 @@
       var place = h('span.rr-place', { text: '–' });
       var avg = h('b.r-pct', { text: '–' });
       var fill = h('div.r-fill');
-      var row = h('div.rr-item' + (hasImages ? '' : '.no-thumb'), { role: 'listitem', 'data-color': o.color || 'charcoal' },
+      var row = h('div.rr-item' + (hasImages ? '' : '.no-thumb'), { role: 'listitem' },
         place,
         hasImages ? h('div.rr-thumb', null, o.image
           ? h('img', { src: o.image, alt: '', decoding: 'async' })
