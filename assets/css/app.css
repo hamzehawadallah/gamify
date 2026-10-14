@@ -1448,8 +1448,12 @@ button {
   color: var(--label-3);
 }
 
-.opts.has-images .opt-label {
+.opts.has-images .opt-text {
+  justify-items: center;
   padding: 10px 6px 6px;
+}
+
+.opts.has-images .opt-label {
   font-size: 15px;
   text-align: center;
 }
@@ -3911,7 +3915,7 @@ details.disclosure[open] .steps {
   height: calc(var(--u) * 0.6);
 }
 
-.r-item.no-thumb .r-label {
+.r-item.no-thumb .r-name {
   grid-column: 1 / span 2;
 }
 
@@ -4385,15 +4389,14 @@ details.disclosure[open] .pp-help .steps {
 .rank-num {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  min-width: 34px;
   flex: none;
-  border-radius: 9px;
-  background: var(--q);
-  color: var(--q-ink);
+  color: var(--label);
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 30px;
   font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4428,8 +4431,16 @@ details.disclosure[open] .pp-help .steps {
   color: var(--label-3);
 }
 
-.rank-label {
+/* The card's title, with its tag (if any) as a pill above it. */
+.rank-text {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
   flex: 1;
+  min-width: 0;
+}
+
+.rank-label {
   min-width: 0;
   font-size: 17px;
   font-weight: 560;
@@ -4599,16 +4610,12 @@ details.disclosure[open] .pp-help .steps {
 }
 
 .p-summary-rank .n {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
+  min-width: 22px;
   flex: none;
-  border-radius: 7px;
-  background: var(--q);
-  color: var(--q-ink);
-  font-size: 13px;
+  font-family: var(--font-display);
+  font-size: 19px;
   font-weight: 750;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4800,20 +4807,18 @@ details.disclosure[open] .pp-help .steps {
   grid-area: place;
   display: grid;
   place-items: center;
-  width: calc(var(--u) * 3.6 * var(--density, 1));
-  height: calc(var(--u) * 3.6 * var(--density, 1));
-  border-radius: calc(var(--u) * 0.8);
-  background: var(--q);
-  color: var(--q-ink);
+  min-width: calc(var(--u) * 3.2 * var(--density, 1));
+  color: var(--label);
   font-family: var(--font-display);
-  font-size: calc(var(--u) * 1.8 * var(--density, 1));
+  font-size: calc(var(--u) * 2.8 * var(--density, 1));
   font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
 
 .rr-item.is-unranked .rr-place {
-  background: var(--fill);
-  color: var(--label-3);
+  color: var(--label-4);
 }
 
 .rr-thumb {
@@ -4845,7 +4850,7 @@ details.disclosure[open] .pp-help .steps {
   color: var(--label-3);
 }
 
-.rr-item .r-label {
+.rr-item .r-name {
   grid-area: label;
 }
 
@@ -4881,10 +4886,8 @@ details.disclosure[open] .pp-help .steps {
 }
 
 .results--rank.is-list .rr-place {
-  width: calc(var(--u) * 2.6 * var(--density, 1));
-  height: calc(var(--u) * 2.6 * var(--density, 1));
-  border-radius: calc(var(--u) * 0.5);
-  font-size: calc(var(--u) * 1.3 * var(--density, 1));
+  min-width: calc(var(--u) * 2.2 * var(--density, 1));
+  font-size: calc(var(--u) * 1.9 * var(--density, 1));
 }
 
 .results--rank.is-list .rr-thumb {
@@ -4915,10 +4918,8 @@ details.disclosure[open] .pp-help .steps {
 }
 
 .results.is-compact .rr-place {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  font-size: 13px;
+  min-width: 24px;
+  font-size: 21px;
 }
 
 .results.is-compact .rr-thumb {
@@ -5047,4 +5048,265 @@ details.disclosure[open] .pp-help .steps {
     flex-basis: 100%;
     margin-inline-start: 0;
   }
+}
+
+/* ==========================================================================
+   Tags: a named, colored pill above an option's title
+   ========================================================================== */
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--q-soft);
+  color: var(--q-text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Phones: an option's title with its tag above it. */
+.opt-text {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Results: the same, sized with the layout. */
+.r-name {
+  display: grid;
+  justify-items: start;
+  gap: calc(var(--u) * 0.45);
+  min-width: 0;
+}
+
+.results .tag-pill {
+  padding: calc(var(--u) * 0.25) calc(var(--u) * 0.8);
+  font-size: calc(var(--u) * 1.05 * var(--density, 1));
+}
+
+.results--list .tag-pill,
+.results--rank.is-list .tag-pill {
+  font-size: calc(var(--u) * 0.85 * var(--density, 1));
+}
+
+.results.is-compact .tag-pill,
+.results-card .tag-pill {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* ---------- Editor: the activity's tags ---------- */
+
+.tags-card {
+  padding: 16px 18px;
+}
+
+.tags-card .field-hint {
+  margin-top: 12px;
+}
+
+.inline-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  padding: 0 3px 0 6px;
+  border-radius: 999px;
+  background: var(--q-soft);
+  transition: box-shadow 0.15s;
+}
+
+.tag-chip:focus-within {
+  box-shadow: inset 0 0 0 2px var(--q);
+}
+
+.tag-chip-color {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--q);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.tag-chip-name {
+  min-width: 0;
+  padding: 0 4px 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--q-text);
+  font-size: 14px;
+  font-weight: 650;
+  outline: none;
+}
+
+.tag-chip-name::placeholder {
+  color: var(--q-text);
+  opacity: 0.55;
+}
+
+.tag-chip-del {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--q-text);
+  opacity: 0.75;
+}
+
+.tag-chip-del:hover {
+  background: rgba(0, 0, 0, 0.06);
+  opacity: 1;
+}
+
+.tag-chip-del svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tag-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border: 1px dashed var(--label-4);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--label);
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.tag-add:hover {
+  border-color: var(--label-3);
+  background: var(--fill-3);
+}
+
+.tag-add svg {
+  width: 16px;
+  height: 16px;
+  color: var(--label-2);
+}
+
+/* An option's text with its tag above it, and the tag button. */
+.opt-main {
+  display: grid;
+  justify-items: start;
+  flex: 1;
+  min-width: 0;
+}
+
+.opt-main .opt-input {
+  width: 100%;
+}
+
+.opt-main .opt-tag {
+  margin-top: 6px;
+  border: 0;
+  cursor: pointer;
+}
+
+.opt-row .opt-tag-btn {
+  color: var(--label-3);
+}
+
+.opt-row .opt-tag-btn.is-on {
+  color: var(--label);
+}
+
+.opt-row .opt-tag-btn:hover {
+  color: var(--label);
+  background: var(--fill-2);
+}
+
+.tag-pop {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  gap: 10px;
+  width: 290px;
+  max-width: calc(100vw - 16px);
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  animation: fade-in 0.15s var(--ease) both;
+}
+
+.tag-pop-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+}
+
+.tag-pop-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-pop-pill {
+  padding: 5px 11px;
+  border: 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tag-pop-pill[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface-raised), 0 0 0 4px var(--q);
+}
+
+.tag-pop-none {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--red-ink);
+}
+
+.tag-pop-new {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sep);
+}
+
+.tag-pop-new .input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
 }

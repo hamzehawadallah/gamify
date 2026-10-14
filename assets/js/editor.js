@@ -11,6 +11,7 @@
   var COLORS = boot.colors || ['red', 'blue', 'yellow', 'green', 'purple', 'teal', 'orange', 'charcoal'];
   var MAX_QUESTIONS = boot.maxQuestions || 12;
   var MAX_OPTIONS = 20;
+  var MAX_TAGS = boot.maxTags || 20;
 
   function uid() {
     return 'k' + Math.random().toString(36).slice(2, 9);
@@ -20,6 +21,7 @@
     o = o || {};
     return {
       key: uid(), id: o.id || null, label: o.label || '', image: o.image || null, imageUrl: o.image_url || null, color: o.color || null,
+      tag: o.tag || null, // id of one of the activity's tags
       merge: [], // saved options of other questions folded into this one by a merge (same name)
       uploading: false
     };
@@ -53,6 +55,8 @@
     settings: Object.assign({}, boot.defaults || {}, existing ? existing.settings : {}),
     questions: (existing && existing.questions.length ? existing.questions : [{}]).map(makeQuestion)
   };
+  // The activity's tags: [{ id, name, color }]. Options point to one by id.
+  state.settings.tags = (state.settings.tags || []).map(function (t) { return { id: t.id, name: t.name, color: t.color }; });
   var focusKey = state.questions[0].key;
   var dirty = false;
   var saving = false;
@@ -393,7 +397,14 @@
         type: 'button', 'data-color': o.color, text: String(i + 1), title: 'Change color',
         'aria-label': 'Item ' + (i + 1) + ' color: ' + o.color + '. Change color', 'aria-haspopup': 'true'
       });
-      num.addEventListener('click', function () { openColorPop(num, q, o); });
+      num.addEventListener('click', function () {
+        openColorPop(num, o.color, 'Item color', function (c) {
+          o.color = c;
+          focusKey = q.key;
+          changed();
+          renderQuestions('[data-key="' + o.key + '"] .opt-num');
+        });
+      });
       row.appendChild(num);
     }
     row.appendChild(slot);
@@ -408,7 +419,22 @@
         }
       }, GM.icon('x')));
     }
-    row.appendChild(input);
+    // The option's tag sits as a pill above its text, as participants see it.
+    var tag = tagById(o.tag);
+    var tagBtn = h('button.btn.btn-icon.btn-sm.btn-plain.opt-tag-btn' + (tag ? '.is-on' : ''), {
+      type: 'button', 'aria-haspopup': 'true', title: tag ? 'Change tag' : 'Add a tag',
+      'aria-label': (tag ? 'Tag: ' + tagName(tag) + '. Change tag' : 'Add a tag') + ' (' + word.toLowerCase() + (i + 1) + ')'
+    }, GM.icon('tag'));
+    tagBtn.addEventListener('click', function () { openTagPop(tagBtn, q, o); });
+    var main = h('div.opt-main');
+    if (tag) {
+      var pill = h('button.tag-pill.opt-tag', { type: 'button', 'data-color': tag.color, 'data-tag': tag.id, title: 'Change tag', text: tagName(tag) });
+      pill.addEventListener('click', function () { openTagPop(pill, q, o); });
+      main.appendChild(pill);
+    }
+    main.appendChild(input);
+    row.appendChild(main);
+    row.appendChild(tagBtn);
     row.appendChild(remove);
     return row;
   }
@@ -496,23 +522,167 @@
     (el.querySelector('[aria-pressed="true"]') || el.querySelector('button')).focus();
   }
 
-  /* Item colors: a small palette that opens from the item's number */
-  function openColorPop(anchor, q, o) {
-    var el = h('div.color-pop', { role: 'group', 'aria-label': 'Item color' });
+  /* Colors (items, tags): a small palette */
+  function openColorPop(anchor, current, label, onPick) {
+    var el = h('div.color-pop', { role: 'group', 'aria-label': label });
     COLORS.forEach(function (c) {
       el.appendChild(h('button.color-dot', {
         type: 'button', 'data-color': c, title: c, 'aria-label': c + ' color',
-        'aria-pressed': o.color === c ? 'true' : 'false',
+        'aria-pressed': current === c ? 'true' : 'false',
         onclick: function () {
-          o.color = c;
           closePop();
-          focusKey = q.key;
-          changed();
-          renderQuestions('[data-key="' + o.key + '"] .opt-num');
+          onPick(c);
         }
       }));
     });
     openPop(anchor, el);
+  }
+
+  /* ---------- Tags: named, colored pills shown above options' titles ---------- */
+
+  var tagList = document.getElementById('tag-list');
+
+  function tagById(id) {
+    return id ? state.settings.tags.filter(function (t) { return t.id === id; })[0] || null : null;
+  }
+
+  function tagName(t) {
+    return t.name.trim() || 'New tag';
+  }
+
+  function tagUses(id) {
+    var n = 0;
+    state.questions.forEach(function (q) {
+      q.options.forEach(function (o) { if (o.tag === id) n++; });
+    });
+    return n;
+  }
+
+  function newTag(name) {
+    var used = state.settings.tags.map(function (t) { return t.color; });
+    var free = COLORS.filter(function (c) { return used.indexOf(c) < 0; });
+    var t = { id: 't' + Math.random().toString(36).slice(2, 10), name: name, color: free[0] || COLORS[state.settings.tags.length % COLORS.length] };
+    state.settings.tags.push(t);
+    return t;
+  }
+
+  /** The activity's tags as editable chips: color, name, delete. */
+  function renderTags(focusId) {
+    tagList.innerHTML = '';
+    state.settings.tags.forEach(function (t) {
+      var dot = h('button.tag-chip-color', {
+        type: 'button', title: 'Change color', 'aria-haspopup': 'true',
+        'aria-label': 'Color of tag ' + tagName(t) + ': ' + t.color + '. Change color'
+      });
+      dot.addEventListener('click', function () {
+        openColorPop(dot, t.color, 'Tag color', function (c) {
+          t.color = c;
+          changed();
+          renderTags();
+          renderQuestions();
+        });
+      });
+      var name = h('input.tag-chip-name', { type: 'text', maxlength: '40', dir: 'auto', placeholder: 'Tag name', 'aria-label': 'Tag name', 'data-tag-input': t.id });
+      name.value = t.name;
+      var fit = function () { name.size = Math.max(6, Math.min(28, (name.value || name.placeholder).length + 1)); };
+      fit();
+      name.addEventListener('input', function () {
+        t.name = name.value;
+        fit();
+        GM.qsa('[data-tag="' + t.id + '"]', qList).forEach(function (p) { p.textContent = tagName(t); });
+        changed();
+      });
+      name.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          name.blur();
+        }
+      });
+      var del = h('button.tag-chip-del', { type: 'button', title: 'Delete tag', 'aria-label': 'Delete tag ' + tagName(t) }, GM.icon('x'));
+      del.addEventListener('click', function () { deleteTag(t); });
+      tagList.appendChild(h('div.tag-chip', { 'data-color': t.color }, dot, name, del));
+    });
+    var add = h('button.tag-add', { type: 'button' }, GM.icon('plus'), state.settings.tags.length ? 'Add tag' : 'Create a tag');
+    add.hidden = state.settings.tags.length >= MAX_TAGS;
+    add.addEventListener('click', function () {
+      var t = newTag('');
+      changed();
+      renderTags(t.id);
+    });
+    tagList.appendChild(add);
+    if (focusId) {
+      var el = tagList.querySelector('[data-tag-input="' + focusId + '"]');
+      if (el) el.focus();
+    }
+  }
+
+  function deleteTag(t) {
+    var uses = tagUses(t.id);
+    var go = function () {
+      state.settings.tags.splice(state.settings.tags.indexOf(t), 1);
+      state.questions.forEach(function (q) {
+        q.options.forEach(function (o) { if (o.tag === t.id) o.tag = null; });
+      });
+      changed();
+      renderTags();
+      renderQuestions();
+    };
+    if (!uses) return go();
+    GM.confirm({
+      title: 'Delete the tag “' + tagName(t) + '”?',
+      message: 'It’s on ' + GM.plural(uses, 'option', 'options') + '. They lose the tag but keep everything else.',
+      confirmLabel: 'Delete',
+      danger: true
+    }).then(function (ok) { if (ok) go(); });
+  }
+
+  /** Pick an option's tag, take it off, or create a new one right here. */
+  function openTagPop(anchor, q, o) {
+    var pick = function (id) {
+      o.tag = id;
+      closePop();
+      focusKey = q.key;
+      changed();
+      renderQuestions('[data-key="' + o.key + '"] .opt-tag-btn');
+    };
+    var el = h('div.tag-pop', { role: 'group', 'aria-label': 'Tag' }, h('div.tag-pop-title', { text: 'Tag' }));
+    if (state.settings.tags.length) {
+      var list = h('div.tag-pop-list');
+      state.settings.tags.forEach(function (t) {
+        list.appendChild(h('button.tag-pill.tag-pop-pill', {
+          type: 'button', 'data-color': t.color, 'aria-pressed': o.tag === t.id ? 'true' : 'false', text: tagName(t),
+          onclick: function () { pick(t.id); }
+        }));
+      });
+      el.appendChild(list);
+    }
+    if (o.tag) el.appendChild(h('button.tag-pop-none', { type: 'button', text: 'Remove tag', onclick: function () { pick(null); } }));
+    var input = h('input.input', {
+      type: 'text', maxlength: '40', dir: 'auto', 'aria-label': 'New tag name',
+      placeholder: state.settings.tags.length ? 'New tag' : 'Name your first tag'
+    });
+    var create = h('button.btn.btn-sm.btn-tinted', { type: 'button', text: 'Add' });
+    var make = function () {
+      var name = input.value.trim();
+      if (!name) return input.focus();
+      if (state.settings.tags.length >= MAX_TAGS) {
+        GM.toast('An activity can have up to ' + MAX_TAGS + ' tags.', 'error');
+        return;
+      }
+      var t = newTag(name);
+      renderTags();
+      pick(t.id);
+    };
+    create.addEventListener('click', make);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        make();
+      }
+    });
+    el.appendChild(h('div.tag-pop-new', null, input, create));
+    openPop(anchor, el);
+    if (!state.settings.tags.length) input.focus();
   }
 
   /* ---------- Merging one question into another ---------- */
@@ -763,7 +933,8 @@
       title: qTitle,
       settings: q.settings,
       options: q.options.map(function (o, i) {
-        return { id: ranking ? o.key : i + 1, label: o.label.trim(), image: o.imageUrl, color: o.color };
+        var t = tagById(o.tag);
+        return { id: ranking ? o.key : i + 1, label: o.label.trim(), image: o.imageUrl, color: o.color, tag: t && t.name.trim() ? { name: t.name.trim(), color: t.color } : null };
       })
     };
     var sel = (previewSelected[q.key] || []).filter(function (id) { return id <= question.options.length; });
@@ -841,6 +1012,14 @@
       titleEl.focus();
       return;
     }
+    // A tag that is in use needs a name; unnamed, unused ones are dropped.
+    var unnamed = state.settings.tags.filter(function (t) { return !t.name.trim() && tagUses(t.id); })[0];
+    if (unnamed) {
+      GM.toast('Give every tag a name, or delete the ones you don’t need.', 'error');
+      var tagInput = tagList.querySelector('[data-tag-input="' + unnamed.id + '"]');
+      if (tagInput) tagInput.focus();
+      return;
+    }
     var multi = state.questions.length > 1;
     for (var i = 0; i < state.questions.length; i++) {
       var q = state.questions[i];
@@ -865,7 +1044,9 @@
       type: 'poll',
       title: state.title,
       description: state.description,
-      settings: state.settings,
+      settings: Object.assign({}, state.settings, {
+        tags: state.settings.tags.filter(function (t) { return t.name.trim(); })
+      }),
       questions: state.questions.map(function (q) {
         return {
           id: q.id,
@@ -875,7 +1056,7 @@
           settings: q.settings,
           options: q.options
             .filter(function (o) { return o.label.trim() || o.image; })
-            .map(function (o) { return { id: o.id, label: o.label, image: o.image, color: o.color, merge: o.merge }; })
+            .map(function (o) { return { id: o.id, label: o.label, image: o.image, color: o.color, tag: o.tag, merge: o.merge }; })
         };
       })
     };
@@ -902,6 +1083,7 @@
     }
   });
 
+  renderTags();
   renderQuestions();
   if (!existing) setTimeout(function () { titleEl.focus(); }, 200);
 })();

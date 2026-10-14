@@ -11,6 +11,7 @@ const GM_ACTIVITY_TYPES = ['poll'];
 // "poll": pick one or more options. "ranking": put every item in order.
 const GM_QUESTION_TYPES = ['poll', 'ranking'];
 const GM_MAX_OPTIONS = 20;
+const GM_MAX_TAGS = 20;
 const GM_MAX_QUESTIONS = 12;
 const GM_LIVE_WAIT_SECONDS = 15;
 // Red and charcoal are the VCL brand colors; the first question gets red.
@@ -25,7 +26,42 @@ function activity_default_settings(): array
         'show_results' => false,  // show live results on participants' phones after voting
         'show_qr' => true,        // show the QR code on the presenter screen
         'show_voters' => true,    // show voters' personas on the presenter screen
+        'tags' => [],             // [{id, name, color}]: a tag shows as a pill above an option's title
     ];
+}
+
+/** The activity's tags, cleaned up: named, a palette color each, unique ids. */
+function activity_normalize_tags($input): array
+{
+    $out = [];
+    $seen = [];
+    foreach (is_array($input) ? array_values($input) : [] as $t) {
+        if (!is_array($t) || count($out) >= GM_MAX_TAGS) {
+            continue;
+        }
+        $name = clean_text($t['name'] ?? '', 40);
+        if ($name === '') {
+            continue;
+        }
+        $id = is_string($t['id'] ?? null) && preg_match('/^[A-Za-z0-9_-]{1,16}$/', $t['id']) ? $t['id'] : '';
+        if ($id === '' || isset($seen[$id])) {
+            $id = 't' . substr(random_token(6), 0, 10);
+        }
+        $seen[$id] = true;
+        $color = is_string($t['color'] ?? null) ? $t['color'] : null;
+        $out[] = ['id' => $id, 'name' => $name, 'color' => option_color($color, count($out))];
+    }
+    return $out;
+}
+
+/** Tag id => {name, color}, for showing an option's tag. */
+function activity_tag_map(array $activity): array
+{
+    $map = [];
+    foreach (activity_settings($activity)['tags'] as $t) {
+        $map[$t['id']] = ['name' => $t['name'], 'color' => $t['color']];
+    }
+    return $map;
 }
 
 function question_default_settings(int $position = 0): array
@@ -50,7 +86,9 @@ function activity_settings(array $activity): array
 {
     $saved = json_decode((string) ($activity['settings'] ?? ''), true);
     $saved = is_array($saved) ? array_intersect_key($saved, activity_default_settings()) : [];
-    return array_merge(activity_default_settings(), $saved);
+    $out = array_merge(activity_default_settings(), $saved);
+    $out['tags'] = is_array($out['tags']) ? $out['tags'] : [];
+    return $out;
 }
 
 function question_settings(array $question, int $position = 0): array
@@ -71,6 +109,10 @@ function activity_normalize_settings($input): array
     $input = is_array($input) ? $input : [];
     $out = [];
     foreach (activity_default_settings() as $key => $default) {
+        if ($key === 'tags') {
+            $out['tags'] = activity_normalize_tags($input['tags'] ?? []);
+            continue;
+        }
         $out[$key] = array_key_exists($key, $input) ? filter_var($input[$key], FILTER_VALIDATE_BOOLEAN) : $default;
     }
     return $out;
@@ -125,7 +167,7 @@ function activity_questions(int $activityId): array
         ];
     }
     foreach (q_all(
-        'SELECT id, question_id, label, image, color FROM gm_options WHERE activity_id = ? ORDER BY position, id',
+        'SELECT id, question_id, label, image, color, tag FROM gm_options WHERE activity_id = ? ORDER BY position, id',
         [$activityId]
     ) as $o) {
         $qid = (int) $o['question_id'];
@@ -136,6 +178,7 @@ function activity_questions(int $activityId): array
                 'label' => $o['label'],
                 'image' => $o['image'],
                 'color' => $ranking ? option_color($o['color'], count($questions[$qid]['options'])) : null,
+                'tag' => $o['tag'] !== null && $o['tag'] !== '' ? $o['tag'] : null,
             ];
         }
     }
@@ -184,6 +227,7 @@ function activity_join_display(array $activity): string
 /** What participants are allowed to see about an activity. */
 function activity_public(array $activity, array $questions): array
 {
+    $tags = activity_tag_map($activity);
     return [
         'code' => $activity['code'],
         'type' => $activity['type'],
@@ -192,7 +236,7 @@ function activity_public(array $activity, array $questions): array
         'status' => $activity['status'],
         'results_hidden' => (bool) $activity['results_hidden'],
         'settings' => activity_settings($activity),
-        'questions' => array_map(static function ($q) {
+        'questions' => array_map(static function ($q) use ($tags) {
             $s = $q['settings'];
             $settings = ['multiple' => $s['multiple'], 'max_choices' => $s['max_choices']];
             if ($q['type'] === 'ranking') {
@@ -205,8 +249,14 @@ function activity_public(array $activity, array $questions): array
                 'description' => $q['description'],
                 'color' => $s['color'],
                 'settings' => $settings,
-                'options' => array_map(static function ($o) {
-                    return ['id' => $o['id'], 'label' => $o['label'], 'image' => image_url($o['image']), 'color' => $o['color']];
+                'options' => array_map(static function ($o) use ($tags) {
+                    return [
+                        'id' => $o['id'],
+                        'label' => $o['label'],
+                        'image' => image_url($o['image']),
+                        'color' => $o['color'],
+                        'tag' => $o['tag'] !== null ? ($tags[$o['tag']] ?? null) : null, // {name, color}
+                    ];
                 }, $q['options']),
             ];
         }, $questions),
@@ -550,6 +600,7 @@ function activity_validate_input(array $in, array $savedImages = []): array
     }
     $description = clean_text($in['description'] ?? '', 1000);
     $settings = activity_normalize_settings($in['settings'] ?? []);
+    $tagIds = array_column($settings['tags'], 'id');
 
     $questions = [];
     foreach (array_values((array) ($in['questions'] ?? [])) as $qIn) {
@@ -584,6 +635,7 @@ function activity_validate_input(array $in, array $savedImages = []): array
                 'label' => $label,
                 'image' => $image,
                 'color' => $ranking ? option_color($color, count($options)) : null,
+                'tag' => isset($o['tag']) && in_array($o['tag'], $tagIds, true) ? $o['tag'] : null,
                 'merge' => array_slice($merge, 0, GM_MAX_OPTIONS * GM_MAX_QUESTIONS),
             ];
         }
@@ -717,8 +769,8 @@ function activity_save(?int $id, array $in): int
                     // Saved before: here already, or merged in from another question.
                     $from = $owner[$oid];
                     q(
-                        'UPDATE gm_options SET question_id = ?, label = ?, image = ?, color = ?, position = ? WHERE id = ?',
-                        [$qid, $o['label'], $o['image'], $o['color'], $pos, $oid]
+                        'UPDATE gm_options SET question_id = ?, label = ?, image = ?, color = ?, tag = ?, position = ? WHERE id = ?',
+                        [$qid, $o['label'], $o['image'], $o['color'], $o['tag'], $pos, $oid]
                     );
                     if ($from !== $qid) {
                         if ($takesVotes && $existing[$from]['type'] === 'poll') {
@@ -732,8 +784,8 @@ function activity_save(?int $id, array $in): int
                     }
                 } else {
                     q(
-                        'INSERT INTO gm_options (activity_id, question_id, label, image, color, position) VALUES (?, ?, ?, ?, ?, ?)',
-                        [$id, $qid, $o['label'], $o['image'], $o['color'], $pos]
+                        'INSERT INTO gm_options (activity_id, question_id, label, image, color, tag, position) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [$id, $qid, $o['label'], $o['image'], $o['color'], $o['tag'], $pos]
                     );
                     $oid = (int) $pdo->lastInsertId();
                 }
@@ -830,8 +882,8 @@ function activity_duplicate(array $activity): int
             );
             $newQid = (int) $pdo->lastInsertId();
             q(
-                'INSERT INTO gm_options (activity_id, question_id, label, image, color, position)
-                 SELECT ?, ?, label, image, color, position FROM gm_options WHERE question_id = ? ORDER BY position, id',
+                'INSERT INTO gm_options (activity_id, question_id, label, image, color, tag, position)
+                 SELECT ?, ?, label, image, color, tag, position FROM gm_options WHERE question_id = ? ORDER BY position, id',
                 [$newId, $newQid, $q['id']]
             );
         }
@@ -894,7 +946,7 @@ function activity_editor_data(array $activity): array
                 'description' => $q['description'],
                 'settings' => $q['settings'],
                 'options' => array_map(static function ($o) {
-                    return ['id' => $o['id'], 'label' => $o['label'], 'image' => $o['image'], 'image_url' => image_url($o['image']), 'color' => $o['color']];
+                    return ['id' => $o['id'], 'label' => $o['label'], 'image' => $o['image'], 'image_url' => image_url($o['image']), 'color' => $o['color'], 'tag' => $o['tag']];
                 }, $q['options']),
             ];
         }, activity_questions((int) $activity['id'])),

@@ -111,7 +111,8 @@
 
     function item(id) {
       var o = byId[id].o;
-      var name = o.label || 'Item ' + (byId[id].i + 1);
+      var title = o.label || 'Item ' + (byId[id].i + 1);
+      var name = title + (o.tag ? ' (' + o.tag.name + ')' : ''); // what screen readers hear
       var num = h('span.rank-num', { 'aria-hidden': 'true' });
       var el = h('li.rank-item', {
         'data-color': o.color || 'charcoal',
@@ -121,8 +122,10 @@
         num,
         hasImages ? h('span.rank-img', null, o.image
           ? h('img', { src: o.image, alt: '', draggable: 'false', loading: 'lazy', decoding: 'async' })
-          : h('span.rank-img-empty', { text: GM.initials(name) })) : null,
-        h('span.rank-label', { dir: 'auto', text: o.label || (o.image ? '' : name) }),
+          : h('span.rank-img-empty', { text: GM.initials(title) })) : null,
+        h('span.rank-text', null,
+          GM.tagPill(o.tag),
+          h('span.rank-label', { dir: 'auto', text: o.label || (o.image ? '' : 'Item ' + (byId[id].i + 1)) })),
         locked ? null : h('span.rank-grip', { 'aria-hidden': 'true' }, GM.icon('grip')));
       return { id: id, el: el, num: num, name: name };
     }

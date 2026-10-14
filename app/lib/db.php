@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const GM_SCHEMA_VERSION = 4;
+const GM_SCHEMA_VERSION = 5;
 
 function db_connect(array $c): PDO
 {
@@ -195,6 +195,10 @@ function gm_migrations(): array
         4 => [
             'db_migrate_ranking',
         ],
+        // A tag per option; the activity's tags (name + color) live in its settings.
+        5 => [
+            'db_migrate_tags',
+        ],
     ];
 }
 
@@ -251,6 +255,14 @@ function db_constraint_exists(PDO $pdo, string $table, string $name): bool
     $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?');
     $stmt->execute([$table, $name]);
     return (bool) $stmt->fetchColumn();
+}
+
+/** Schema step 5: an option's tag. Safe to re-run. */
+function db_migrate_tags(PDO $pdo): void
+{
+    if (!db_column_exists($pdo, 'gm_options', 'tag')) {
+        $pdo->exec('ALTER TABLE gm_options ADD COLUMN tag VARCHAR(16) NULL AFTER color');
+    }
 }
 
 /** Schema step 4: question types and item colors. Safe to re-run. */
