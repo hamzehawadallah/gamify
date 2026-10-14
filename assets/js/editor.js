@@ -260,7 +260,6 @@
     var go = function () {
       q.type = type;
       if (type === 'ranking') {
-        q.options.forEach(function (o) { if (!o.color) o.color = nextColor(q); });
         if (!q.settings.top_label && !q.settings.bottom_label) {
           q.settings.top_label = 'Most important';
           q.settings.bottom_label = 'Least important';
@@ -276,13 +275,6 @@
       message: 'Answers already given to this question are removed when you save.',
       confirmLabel: 'Change type'
     }).then(function (ok) { if (ok) go(); });
-  }
-
-  /** A color no other item of this ranking uses yet, if there is one. */
-  function nextColor(q) {
-    var used = q.options.map(function (o) { return o.color; });
-    var free = COLORS.filter(function (c) { return used.indexOf(c) < 0; });
-    return free[0] || COLORS[q.options.length % COLORS.length];
   }
 
   function addQuestion() {
@@ -391,22 +383,7 @@
     remove.addEventListener('click', function () { removeOption(q, o); });
 
     row.appendChild(handle);
-    if (ranking) {
-      // The item's place, in its color. Tap it to pick another color.
-      var num = h('button.opt-num', {
-        type: 'button', 'data-color': o.color, text: String(i + 1), title: 'Change color',
-        'aria-label': 'Item ' + (i + 1) + ' color: ' + o.color + '. Change color', 'aria-haspopup': 'true'
-      });
-      num.addEventListener('click', function () {
-        openColorPop(num, o.color, 'Item color', function (c) {
-          o.color = c;
-          focusKey = q.key;
-          changed();
-          renderQuestions('[data-key="' + o.key + '"] .opt-num');
-        });
-      });
-      row.appendChild(num);
-    }
+    if (ranking) row.appendChild(h('span.opt-num', { 'aria-hidden': 'true', text: String(i + 1) })); // its place in the list
     row.appendChild(slot);
     if (o.image) {
       row.appendChild(h('button.img-remove', {
@@ -448,7 +425,6 @@
     if (q.options.length >= MAX_OPTIONS) return;
     var o = makeOption();
     o.isNew = true;
-    if (q.type === 'ranking') o.color = nextColor(q);
     q.options.push(o);
     focusKey = q.key;
     changed();
@@ -522,7 +498,7 @@
     (el.querySelector('[aria-pressed="true"]') || el.querySelector('button')).focus();
   }
 
-  /* Colors (items, tags): a small palette */
+  /* Tag colors: a small palette */
   function openColorPop(anchor, current, label, onPick) {
     var el = h('div.color-pop', { role: 'group', 'aria-label': label });
     COLORS.forEach(function (c) {
@@ -753,7 +729,6 @@
       });
       target.options = keep;
       moving.forEach(function (o) {
-        if (target.type === 'ranking' && !o.color) o.color = nextColor(target);
         o.isNew = true;
         target.options.push(o);
       });

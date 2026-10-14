@@ -4711,39 +4711,17 @@ details.disclosure[open] .pp-help .steps {
   box-shadow: inset 0 0 0 2px var(--q);
 }
 
-/* An item's place in its color; a tiny palette dot says "tap to change the color". */
+/* An item's place in the list: a plain number, like participants see. */
 .opt-num {
-  position: relative;
-  display: grid;
-  place-items: center;
   width: 30px;
-  height: 30px;
   flex: none;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: var(--q);
-  color: var(--q-ink);
-  font-size: 14px;
+  color: var(--label-2);
+  font-family: var(--font-display);
+  font-size: 20px;
   font-weight: 750;
+  line-height: 1;
+  text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-.opt-num::after {
-  content: "";
-  position: absolute;
-  inset-inline-end: -4px;
-  bottom: -4px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: conic-gradient(#ce2823, #eeb11b, #1f9d55, #0f8f94, #2563d8, #7a45d0, #ce2823);
-  box-shadow: 0 0 0 2px var(--surface);
-}
-
-.opt-num:focus-visible {
-  outline: 2px solid var(--q);
-  outline-offset: 2px;
 }
 
 .opt-row.has-num .img-remove {

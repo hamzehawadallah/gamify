@@ -9,7 +9,7 @@ You watch the results update live on the big screen, including inside PowerPoint
 - **Activities with several questions.** One QR code per activity, holding one or more questions, like a toolbox voting wall with three sections. Each question has its own title, description and color.
 - **Pictures on options.** Every question can be single or multiple choice (with an optional limit), with a picture on any option.
 - **Tags.** Create tags for an activity (a name and a color, e.g. *Tool*, *Model*) and give any option one. It shows as a colored pill above the option's title, on phones and in the results.
-- **Rankings.** Turn any question into a ranking: a list of items, each with a picture, a color and a title. Participants drag the numbered cards into the order they think fits best, e.g. from *most important* to *least important*, and the presenter shows a live leaderboard.
+- **Rankings.** Turn any question into a ranking: a list of items, each with a picture and a title. Participants drag the numbered cards into the order they think fits best, e.g. from *most important* to *least important*, and the presenter shows a live leaderboard.
 - **Instant results.** New votes reach the presenter screen in well under a second.
 - **Present anywhere.** The presenter view goes straight onto your slides with VCL Gamify's own free PowerPoint add-in. It scales to any size, in light or dark.
 - **You stay in control.** Open or close voting, hide results until the reveal, clear votes, see who voted for what, and export to CSV (Excel-friendly, Arabic included).
@@ -128,11 +128,11 @@ During a session you control everything from the activity's admin page, e.g. on 
 
 Switch any question to **Ranking** in the editor. Then:
 
-- **Items.** Each item has a title, an optional picture and a color. The number next to each item is its place in your list; tap it to pick another color. Drag the handle to reorder.
+- **Items.** Each item has a title, an optional picture and, if you like, a tag. The number next to each item is its place in your list. Drag the handle to reorder.
 - **What the ends mean.** Above and below the items, say what the top and the bottom of the list mean. They start as *Most important* and *Least important*; change them to anything, e.g. *Most interactive* and *Least interactive*, or clear them.
 - **Shuffle.** On by default: everyone starts from their own shuffled order, so nobody just keeps the order you typed. Turn it off to start everyone from your order.
 
-On their phones, participants see numbered cards in the item colors with a grip on each one. The first time, a hand shows the gesture by moving a card down and back.
+On their phones, participants see numbered cards with a grip on each one. The first time, a hand shows the gesture by moving a card down and back.
 They press and drag a card (or grab its grip) to move it; the numbers update as they go and the page scrolls when they drag to the edge. The arrow keys work too.
 
 The results are a leaderboard, best first, that rearranges itself live as rankings come in:

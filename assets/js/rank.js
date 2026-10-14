@@ -115,7 +115,6 @@
       var name = title + (o.tag ? ' (' + o.tag.name + ')' : ''); // what screen readers hear
       var num = h('span.rank-num', { 'aria-hidden': 'true' });
       var el = h('li.rank-item', {
-        'data-color': o.color || 'charcoal',
         tabindex: locked ? null : '0',
         'aria-describedby': locked ? null : helpId
       },

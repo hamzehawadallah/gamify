@@ -493,10 +493,10 @@
       var picks = mine.map(function (id) { return optionLabel(q, id); }).filter(Boolean);
       var answer;
       if (isRanking(q) && picks.length) {
-        // Their own order, each item with its place and color.
+        // Their own order, each item with its place.
         answer = h('ol.p-summary-rank', null, mine.map(function (id, k) {
           var o = q.options.filter(function (x) { return x.id === id; })[0];
-          return o ? h('li', { 'data-color': o.color || 'charcoal' },
+          return o ? h('li', null,
             h('span.n', { text: String(k + 1) }),
             h('span', { dir: 'auto', text: optionLabel(q, id) })) : null;
         }));
