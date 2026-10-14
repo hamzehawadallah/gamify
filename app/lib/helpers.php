@@ -351,5 +351,5 @@ function brand_logo(string $class = '', bool $onDark = false): string
 {
     $cls = trim('brand-logo ' . $class);
     $src = asset($onDark ? 'img/logo-dark.svg' : 'img/logo.svg');
-    return '<img class="' . e($cls) . '" src="' . e($src) . '" alt="VCL Gamify" width="70" height="32">';
+    return '<img class="' . e($cls) . '" src="' . e($src) . '" alt="VCL Gamify" width="62" height="32">';
 }
